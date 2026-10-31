@@ -1,0 +1,122 @@
+
+.inventory-controls {
+    position: absolute;
+    right: 30px;
+    top: 90px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    pointer-events: auto;
+}
+
+.inventory-controls button {
+    background: rgba(8, 13, 20, .85);
+    border: 1px solid rgba(166, 189, 201, .55);
+    color: #dce7ed;
+    padding: 13px 16px;
+    font-size: 9px;
+    letter-spacing: 2px;
+    transition: .25s;
+}
+
+.inventory-controls button:hover {
+    background: #a6bdc9;
+    color: #080b10;
+}
+
+#inventory-panel {
+    position: absolute;
+    right: 30px;
+    top: 180px;
+    width: 320px;
+    max-height: 400px;
+    overflow-y: auto;
+    padding: 22px;
+    background: rgba(7, 12, 18, .96);
+    border: 1px solid #46545e;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateX(20px);
+    transition: .3s ease;
+    pointer-events: auto;
+}
+
+#inventory-panel.inventory-open {
+    opacity: 1;
+    visibility: visible;
+    transform: translateX(0);
+}
+
+.inventory-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 18px;
+    border-bottom: 1px solid #34414a;
+}
+
+.inventory-header h2 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 20px;
+    letter-spacing: 2px;
+}
+
+#inventory-count {
+    color: #a6bdc9;
+    font-size: 20px;
+}
+
+.inventory-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 0;
+    border-bottom: 1px solid rgba(255,255,255,.08);
+    color: #dce4e9;
+    font-size: 11px;
+}
+
+.item-icon {
+    width: 35px;
+    height: 35px;
+    display: grid;
+    place-items: center;
+    background: #202c35;
+    color: #b8cbd5;
+    font-size: 20px;
+}
+
+.inventory-footer {
+    margin-top: 18px;
+    color: #758590;
+    font-size: 8px;
+    line-height: 1.7;
+    letter-spacing: 1px;
+}
+
+#inventory-list:empty::after {
+    content: "Nenhum objeto encontrado.";
+    display: block;
+    padding: 20px 0;
+    color: #81909b;
+    font-size: 11px;
+}
+
+@media (max-width: 600px) {
+    .inventory-controls {
+        top: auto;
+        bottom: 90px;
+        right: 12px;
+    }
+
+    .inventory-controls button {
+        padding: 10px;
+        font-size: 8px;
+    }
+
+    #inventory-panel {
+        top: 100px;
+        right: 12px;
+        width: min(320px, calc(100% - 24px));
+    }
+}
