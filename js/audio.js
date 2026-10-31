@@ -1,59 +1,350 @@
+export function createAudio() {
 
-export function setupAudio() {
-    let audioContext = null;
-    let oscillator = null;
-    let gain = null;
-    let active = false;
+  let audioContext = null;
+  let masterGain = null;
 
-    function start() {
-        if (active) return;
+  let windGain = null;
+  let windOscillator = null;
+  let windFilter = null;
 
-        try {
-            const AudioContextClass =
-                window.AudioContext || window.webkitAudioContext;
+  let ambientStarted = false;
+  let muted = false;
 
-            if (!AudioContextClass) return;
+  const activeNodes = [];
 
-            audioContext = new AudioContextClass();
+  // =========================================
+  // INICIALIZAÇÃO DO ÁUDIO
+  // =========================================
 
-            oscillator = audioContext.createOscillator();
-            gain = audioContext.createGain();
+  function initialize() {
 
-            oscillator.type = 'sine';
-            oscillator.frequency.value = 48;
+    if (audioContext) return;
 
-            gain.gain.value = 0.025;
+    const AudioContextClass =
+      window.AudioContext ||
+      window.webkitAudioContext;
 
-            oscillator.connect(gain);
-            gain.connect(audioContext.destination);
-
-            oscillator.start();
-
-            audioContext.resume();
-            active = true;
-        } catch (error) {
-            console.warn('Áudio ambiente indisponível:', error);
-        }
+    if (!AudioContextClass) {
+      console.warn("Áudio não suportado neste navegador.");
+      return;
     }
 
-    function stop() {
-        if (!active) return;
+    audioContext = new AudioContextClass();
 
-        try {
-            oscillator?.stop();
-            audioContext?.close();
-        } catch (error) {
-            console.warn('Não foi possível interromper o áudio:', error);
-        }
+    masterGain = audioContext.createGain();
 
-        oscillator = null;
-        gain = null;
-        audioContext = null;
-        active = false;
+    masterGain.gain.value = 0.35;
+
+    masterGain.connect(audioContext.destination);
+
+  }
+
+  // =========================================
+  // RUÍDO DE VENTO
+  // =========================================
+
+  function createWind() {
+
+    if (!audioContext || windOscillator) return;
+
+    windOscillator = audioContext.createOscillator();
+
+    windFilter = audioContext.createBiquadFilter();
+
+    windGain = audioContext.createGain();
+
+    windOscillator.type = "sawtooth";
+
+    windOscillator.frequency.value = 65;
+
+    windFilter.type = "lowpass";
+
+    windFilter.frequency.value = 180;
+
+    windGain.gain.value = 0.025;
+
+    windOscillator.connect(windFilter);
+
+    windFilter.connect(windGain);
+
+    windGain.connect(masterGain);
+
+    windOscillator.start();
+
+    activeNodes.push(windOscillator);
+
+  }
+
+  // =========================================
+  // SOM ATMOSFÉRICO
+  // =========================================
+
+  function createAmbientTone(frequency, volume, duration = 4) {
+
+    if (!audioContext || muted) return;
+
+    const oscillator = audioContext.createOscillator();
+
+    const gain = audioContext.createGain();
+
+    oscillator.type = "sine";
+
+    oscillator.frequency.value = frequency;
+
+    gain.gain.setValueAtTime(
+      0,
+      audioContext.currentTime
+    );
+
+    gain.gain.linearRampToValueAtTime(
+      volume,
+      audioContext.currentTime + 1
+    );
+
+    gain.gain.linearRampToValueAtTime(
+      0,
+      audioContext.currentTime + duration
+    );
+
+    oscillator.connect(gain);
+
+    gain.connect(masterGain);
+
+    oscillator.start();
+
+    oscillator.stop(
+      audioContext.currentTime + duration + 0.1
+    );
+
+    activeNodes.push(oscillator);
+
+  }
+
+  // =========================================
+  // RUÍDO DISTANTE
+  // =========================================
+
+  function createDistantSound() {
+
+    if (!audioContext || muted) return;
+
+    const frequency =
+      90 + Math.random() * 180;
+
+    const duration =
+      2 + Math.random() * 3;
+
+    createAmbientTone(
+      frequency,
+      0.012,
+      duration
+    );
+
+  }
+
+  // =========================================
+  // INICIAR AMBIENTAÇÃO
+  // =========================================
+
+  async function start() {
+
+    initialize();
+
+    if (!audioContext) return;
+
+    if (audioContext.state === "suspended") {
+      await audioContext.resume();
     }
 
-    return {
-        start,
-        stop
-    };
+    if (ambientStarted) return;
+
+    ambientStarted = true;
+
+    createWind();
+
+    ambientLoop();
+
+  }
+
+  // =========================================
+  // CICLO DE AMBIENTAÇÃO
+  // =========================================
+
+  let ambientTimer = null;
+
+  function ambientLoop() {
+
+    if (!ambientStarted) return;
+
+    createDistantSound();
+
+    ambientTimer = setTimeout(
+      ambientLoop,
+      5000 + Math.random() * 7000
+    );
+
+  }
+
+  // =========================================
+  // EFEITO DE SUSPENSE
+  // =========================================
+
+  function playSuspense() {
+
+    initialize();
+
+    if (!audioContext || muted) return;
+
+    createAmbientTone(
+      42,
+      0.07,
+      5
+    );
+
+    createAmbientTone(
+      110,
+      0.025,
+      4
+    );
+
+  }
+
+  // =========================================
+  // EFEITO DE DESCOBERTA
+  // =========================================
+
+  function playDiscovery() {
+
+    initialize();
+
+    if (!audioContext || muted) return;
+
+    createAmbientTone(
+      440,
+      0.025,
+      0.7
+    );
+
+    createAmbientTone(
+      554,
+      0.025,
+      1
+    );
+
+  }
+
+  // =========================================
+  // CONTROLE DE VOLUME
+  // =========================================
+
+  function setVolume(value) {
+
+    initialize();
+
+    if (!masterGain || !audioContext) return;
+
+    const volume = Math.max(
+      0,
+      Math.min(1, Number(value))
+    );
+
+    masterGain.gain.setTargetAtTime(
+      volume,
+      audioContext.currentTime,
+      0.1
+    );
+
+  }
+
+  // =========================================
+  // SILENCIAR
+  // =========================================
+
+  function mute() {
+
+    muted = true;
+
+    if (masterGain && audioContext) {
+      masterGain.gain.setTargetAtTime(
+        0,
+        audioContext.currentTime,
+        0.1
+      );
+    }
+
+  }
+
+  function unmute() {
+
+    muted = false;
+
+    if (masterGain && audioContext) {
+      masterGain.gain.setTargetAtTime(
+        0.35,
+        audioContext.currentTime,
+        0.1
+      );
+    }
+
+  }
+
+  // =========================================
+  // ENCERRAR ÁUDIO
+  // =========================================
+
+  function stop() {
+
+    ambientStarted = false;
+
+    if (ambientTimer) {
+      clearTimeout(ambientTimer);
+      ambientTimer = null;
+    }
+
+    if (windOscillator) {
+      try {
+        windOscillator.stop();
+      } catch (error) {}
+
+      windOscillator = null;
+    }
+
+    activeNodes.forEach(node => {
+      try {
+        node.stop();
+      } catch (error) {}
+    });
+
+    activeNodes.length = 0;
+
+  }
+
+  // =========================================
+  // DESTRUIR SISTEMA
+  // =========================================
+
+  function destroy() {
+
+    stop();
+
+    if (audioContext) {
+      audioContext.close();
+      audioContext = null;
+    }
+
+  }
+
+  return {
+    start,
+    stop,
+    mute,
+    unmute,
+    setVolume,
+    playSuspense,
+    playDiscovery,
+    destroy,
+
+    isMuted: () => muted
+  };
+
 }
