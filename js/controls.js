@@ -28,9 +28,10 @@ export function createControls(THREE, camera, canvas, player) {
         yaw -= event.movementX * sensitivity;
         pitch -= event.movementY * sensitivity;
 
-        pitch = Math.max(
+        pitch = THREE.MathUtils.clamp(
+            pitch,
             -Math.PI / 2 + 0.05,
-            Math.min(Math.PI / 2 - 0.05, pitch)
+            Math.PI / 2 - 0.05
         );
 
         camera.rotation.order = 'YXZ';
@@ -49,11 +50,9 @@ export function createControls(THREE, camera, canvas, player) {
     function deactivate() {
         active = false;
 
-        keys['KeyW'] = false;
-        keys['KeyA'] = false;
-        keys['KeyS'] = false;
-        keys['KeyD'] = false;
-        keys['ShiftLeft'] = false;
+        Object.keys(keys).forEach(key => {
+            keys[key] = false;
+        });
 
         window.removeEventListener('keydown', onKeyDown);
         window.removeEventListener('keyup', onKeyUp);
@@ -100,7 +99,9 @@ export function createControls(THREE, camera, canvas, player) {
         if (moving) {
             direction.normalize();
 
-            const speed = keys['ShiftLeft'] ? 7 : player.speed;
+            const speed = keys['ShiftLeft']
+                ? 7
+                : player.speed;
 
             camera.position.addScaledVector(
                 direction,
@@ -108,18 +109,16 @@ export function createControls(THREE, camera, canvas, player) {
             );
         }
 
-        // LIMITES DA ÁREA EXPLORÁVEL
-
         camera.position.x = THREE.MathUtils.clamp(
             camera.position.x,
-            -11,
-            11
+            -55,
+            55
         );
 
         camera.position.z = THREE.MathUtils.clamp(
             camera.position.z,
-            -100,
-            100
+            -110,
+            110
         );
     }
 
