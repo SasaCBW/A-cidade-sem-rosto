@@ -2,122 +2,198 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="theme-color" content="#080b10">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#090e16">
 
-    <title>A Cidade Sem Rosto</title>
+  <title>A Cidade Sem Rosto</title>
 
-    <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="phase2.css">
+  <meta
+    name="description"
+    content="A Cidade Sem Rosto — um jogo 3D de suspense, exploração e mistério."
+  >
+
+  <link rel="stylesheet" href="./style.css">
+  <link rel="stylesheet" href="./phase2.css">
+  <link rel="stylesheet" href="./js/flashlight-style.css">
+  <link rel="stylesheet" href="./js/journal.css">
 </head>
 
 <body>
 
-    <div id="loading-screen">
-        <div class="loading-content">
-            <div class="loading-symbol">?</div>
-            <h1>A CIDADE SEM ROSTO</h1>
-            <p>CARREGANDO A CIDADE...</p>
-            <div class="loading-bar"><span></span></div>
-        </div>
+  <!-- TELA DE CARREGAMENTO -->
+  <div id="loadingScreen">
+    <div class="loading-content">
+      <h1>A CIDADE SEM ROSTO</h1>
+      <p>Preparando a cidade...</p>
+      <div class="loading-bar">
+        <div class="loading-progress"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MENU PRINCIPAL -->
+  <main id="mainMenu">
+    <div class="menu-background"></div>
+
+    <div class="menu-content">
+      <p class="menu-subtitle">UMA CIDADE. MIL SEGREDOS.</p>
+
+      <h1>A CIDADE<br>SEM ROSTO</h1>
+
+      <p class="menu-description">
+        Algumas cidades escondem histórias.
+        Esta cidade esconde pessoas.
+      </p>
+
+      <button id="startButton" type="button">
+        ENTRAR NA CIDADE
+      </button>
+
+      <button id="continueButton" type="button">
+        CONTINUAR INVESTIGAÇÃO
+      </button>
+
+      <button id="aboutButton" type="button">
+        SOBRE O JOGO
+      </button>
     </div>
 
-    <div id="main-menu">
-        <div class="menu-background"></div>
+    <p class="menu-footer">
+      A CIDADE SEM ROSTO © 2026
+    </p>
+  </main>
 
-        <div class="menu-content">
-            <p class="eyebrow">UMA EXPERIÊNCIA DE MISTÉRIO 3D</p>
+  <!-- ÁREA PRINCIPAL DO JOGO -->
+  <div id="gameContainer">
 
-            <h1>A CIDADE<br><span>SEM ROSTO</span></h1>
+    <!-- O THREE.JS SERÁ RENDERIZADO AQUI -->
 
-            <p class="subtitle">
-                Algumas cidades escondem segredos.<br>
-                Esta cidade esconde algo muito pior.
-            </p>
+    <!-- HUD -->
+    <div id="hud">
 
-            <button id="start-button">INICIAR INVESTIGAÇÃO</button>
-            <button id="about-button">SOBRE O JOGO</button>
-
-            <p class="menu-footer">NÃO CONFIE NO QUE VOCÊ VÊ.</p>
+      <div class="hud-top">
+        <div class="game-title">
+          <span>A CIDADE SEM ROSTO</span>
+          <small>ARQUIVO DE INVESTIGAÇÃO</small>
         </div>
+
+        <div id="gameClock">
+          23:47
+        </div>
+      </div>
+
+      <div class="mission-box">
+        <small>OBJETIVO ATUAL</small>
+        <p id="missionText">
+          Explore a cidade abandonada.
+        </p>
+      </div>
+
+      <div id="interactionPrompt">
+        Pressione E para investigar
+      </div>
+
+      <div class="hud-controls">
+        <span>W A S D — MOVIMENTAR</span>
+        <span>MOUSE — OLHAR</span>
+        <span>F — LANTERNA</span>
+        <span>TAB — INVENTÁRIO</span>
+        <span>J — DIÁRIO</span>
+        <span>ESC — PAUSAR</span>
+      </div>
     </div>
 
-    <div id="game-container"></div>
+    <!-- MENSAGENS -->
+    <div id="gameMessage"></div>
 
-    <div id="game-ui" class="hidden">
+    <!-- BOTÃO DA LANTERNA -->
+    <button id="flashlightBtn" type="button">
+      🔦 LANTERNA: DESLIGADA
+    </button>
 
-        <div class="top-info">
-            <div class="location">
-                <span class="status-dot"></span>
-                DISTRITO CENTRAL
-            </div>
-            <div id="clock">03:17 AM</div>
-        </div>
+    <!-- BOTÃO DO DIÁRIO -->
+    <button id="journalButton" type="button">
+      📓 DIÁRIO
+    </button>
 
-        <div class="mission-panel">
-            <p>OBJETIVO ATUAL</p>
-            <h3 id="mission-title">Descubra onde você está.</h3>
-            <span id="mission-description">
-                Explore as ruas e procure pistas.
-            </span>
-        </div>
+    <!-- INVENTÁRIO -->
+    <section id="inventoryPanel">
+      <div class="inventory-header">
+        <h2>INVENTÁRIO</h2>
+        <p>Objetos encontrados durante a investigação.</p>
+      </div>
 
-        <div class="crosshair">+</div>
+      <div id="inventoryItems">
+        <p>Nenhum objeto encontrado.</p>
+      </div>
 
-        <div id="interaction-message"></div>
+      <p class="inventory-hint">
+        Pressione TAB para fechar.
+      </p>
+    </section>
 
-        <div class="inventory-controls">
-            <button id="flashlight-button">LANTERNA [F]</button>
-            <button id="inventory-button">INVENTÁRIO [TAB]</button>
-        </div>
+    <!-- DIÁRIO DE INVESTIGAÇÃO -->
+    <section id="journalPanel">
 
-        <div id="inventory-panel">
-            <div class="inventory-header">
-                <h2>OBJETOS ENCONTRADOS</h2>
-                <span id="inventory-count">0</span>
-            </div>
+      <button id="closeJournal" type="button">
+        FECHAR
+      </button>
 
-            <div id="inventory-list"></div>
+      <h2>DIÁRIO DE INVESTIGAÇÃO</h2>
 
-            <p class="inventory-footer">
-                INVESTIGUE CADA PISTA CUIDADOSAMENTE.
-            </p>
-        </div>
+      <p>
+        Registros, documentos e evidências encontrados na cidade.
+      </p>
 
-        <div class="bottom-info">
-            <span>W A S D — MOVIMENTAR</span>
-            <span>MOUSE — OLHAR</span>
-            <span>F — LANTERNA</span>
-            <span>E — INVESTIGAR</span>
-            <span>ESC — PAUSAR</span>
-        </div>
+      <div id="journalEntries">
+        <p>Nenhuma pista encontrada ainda.</p>
+      </div>
 
+    </section>
+
+    <!-- MENU DE PAUSA -->
+    <section id="pauseMenu">
+      <div class="pause-content">
+        <p>INVESTIGAÇÃO INTERROMPIDA</p>
+
+        <h2>PAUSADO</h2>
+
+        <button id="resumeButton" type="button">
+          CONTINUAR
+        </button>
+
+        <button id="returnMenuButton" type="button">
+          VOLTAR AO MENU
+        </button>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- SOBRE O JOGO -->
+  <section id="aboutModal">
+    <div class="about-content">
+      <button id="closeAboutButton" type="button">✕</button>
+
+      <h2>A CIDADE SEM ROSTO</h2>
+
+      <p>
+        Uma cidade aparentemente abandonada.
+        Fotografias sem rostos.
+        Documentos esquecidos.
+        E uma verdade que alguém tentou esconder.
+      </p>
+
+      <p>
+        Explore os lugares, encontre pistas e descubra
+        o que aconteceu com os habitantes.
+      </p>
     </div>
+  </section>
 
-    <div id="pause-menu" class="hidden">
-        <div class="pause-content">
-            <p>INVESTIGAÇÃO INTERROMPIDA</p>
-            <h2>PAUSADO</h2>
-            <button id="resume-button">CONTINUAR</button>
-            <button id="menu-button">VOLTAR AO MENU</button>
-        </div>
-    </div>
-
-    <div id="about-modal" class="hidden">
-        <div class="about-content">
-            <h2>A CIDADE SEM ROSTO</h2>
-
-            <p>
-                Uma cidade vazia. Fotografias sem rostos.
-                Um mistério que ninguém deveria descobrir.
-            </p>
-
-            <button id="close-about">FECHAR</button>
-        </div>
-    </div>
-
-    <script type="module" src="js/main.js"></script>
+  <!-- ARQUIVO PRINCIPAL DO JOGO -->
+  <script type="module" src="./js/main.js"></script>
 
 </body>
 </html>
