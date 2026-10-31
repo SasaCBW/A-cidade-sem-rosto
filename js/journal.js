@@ -1,62 +1,157 @@
-
 export function createJournal() {
-  const entries = [];
+    const entries = [];
+    const container = document.getElementById("journalEntries");
 
-  function addEntry(title, description) {
-    if (entries.some(entry => entry.title === title)) {
-      return false;
+    function addEntry(title, description, category = "Pista") {
+        if (!title || !description) {
+            return false;
+        }
+
+        const alreadyExists = entries.some(
+            entry => entry.title === title
+        );
+
+        if (alreadyExists) {
+            return false;
+        }
+
+        const entry = {
+            id: crypto.randomUUID
+                ? crypto.randomUUID()
+                : String(Date.now() + Math.random()),
+
+            title,
+            description,
+            category,
+            date: new Date().toISOString()
+        };
+
+        entries.push(entry);
+
+        renderEntry(entry);
+
+        window.dispatchEvent(
+            new CustomEvent("journalEntryAdded", {
+                detail: entry
+            })
+        );
+
+        return true;
     }
 
-    entries.push({
-      title,
-      description,
-      date: new Date().toLocaleString("pt-BR")
-    });
+    function renderEntry(entry) {
+        if (!container) return;
 
-    updateDisplay();
-    return true;
-  }
+        const emptyMessage = container.querySelector(".journal-empty");
 
-  function updateDisplay() {
-    const list = document.getElementById("journalEntries");
+        if (emptyMessage) {
+            emptyMessage.remove();
+        }
 
-    if (!list) return;
+        const element = document.createElement("article");
+        element.className = "journal-entry";
 
-    list.innerHTML = "";
+        const category = document.createElement("span");
+        category.className = "journal-entry-category";
+        category.textContent = entry.category;
 
-    if (entries.length === 0) {
-      list.innerHTML = "<p>Nenhuma pista encontrada ainda.</p>";
-      return;
+        const heading = document.createElement("h3");
+        heading.textContent = entry.title;
+
+        const paragraph = document.createElement("p");
+        paragraph.textContent = entry.description;
+
+        const date = document.createElement("small");
+        date.textContent = formatDate(entry.date);
+
+        element.append(category, heading, paragraph, date);
+
+        container.prepend(element);
     }
 
-    entries.forEach(entry => {
-      const article = document.createElement("article");
-      const title = document.createElement("h3");
-      const description = document.createElement("p");
-      const date = document.createElement("small");
+    function formatDate(value) {
+        const date = new Date(value);
 
-      title.textContent = entry.title;
-      description.textContent = entry.description;
-      date.textContent = entry.date;
+        if (Number.isNaN(date.getTime())) {
+            return "Data desconhecida";
+        }
 
-      article.append(title, description, date);
-      list.appendChild(article);
-    });
-  }
+        return date.toLocaleString("pt-BR", {
+            day: "2-digit",
+            month: "2-digit",
+            hour: "2-digit",
+            minute: "2-digit"
+        });
+    }
 
-  function getEntries() {
-    return [...entries];
-  }
+    function restore(savedEntries = []) {
+        entries.length = 0;
 
-  function restore(savedEntries = []) {
-    entries.length = 0;
-    entries.push(...savedEntries);
-    updateDisplay();
-  }
+        if (container) {
+            container.innerHTML = "";
+        }
 
-  return {
-    addEntry,
-    getEntries,
-    restore
-  };
+        for (const entry of savedEntries) {
+            if (!entry || !entry.title || !entry.description) {
+                continue;
+            }
+
+            entries.push({
+                id: entry.id || String(Date.now() + Math.random()),
+                title: entry.title,
+                description: entry.description,
+                category: entry.category || "Pista",
+                date: entry.date || new Date().toISOString()
+            });
+        }
+
+        renderAll();
+    }
+
+    function renderAll() {
+        if (!container) return;
+
+        container.innerHTML = "";
+
+        if (entries.length === 0) {
+            const empty = document.createElement("p");
+
+            empty.className = "journal-empty";
+            empty.textContent =
+                "Seu diário está vazio. As pistas encontradas aparecerão aqui.";
+
+            container.appendChild(empty);
+
+            return;
+        }
+
+        entries.forEach(renderEntry);
+    }
+
+    function getEntries() {
+        return entries.map(entry => ({ ...entry }));
+    }
+
+    function clear() {
+        entries.length = 0;
+        renderAll();
+    }
+
+    function destroy() {
+        if (container) {
+            container.innerHTML = "";
+        }
+
+        entries.length = 0;
+    }
+
+    renderAll();
+
+    return {
+        addEntry,
+        getEntries,
+        restore,
+        clear,
+        destroy
+    };
 }
