@@ -25,424 +25,572 @@ import { createHospital } from "./hospital.js";
 import { createSchool } from "./school.js";
 import { createLocationClues } from "./location-clues.js";
 import { createLocationMissions } from "./location-missions.js";
+import { createInventory } from "./inventory.js";
 
 /* ==========================================
-   ELEMENTOS HTML
+   A CIDADE SEM ROSTO
+   CONTROLADOR PRINCIPAL
 ========================================== */
 
-const gameContainer = document.getElementById("gameContainer");
-const mainMenu = document.getElementById("mainMenu");
-const startButton = document.getElementById("startButton");
-const continueButton = document.getElementById("continueButton");
-const aboutButton = document.getElementById("aboutButton");
+const canvas = document.querySelector("#gameCanvas");
 
-const pauseMenu = document.getElementById("pauseMenu");
-const resumeButton = document.getElementById("resumeButton");
-const returnMenuButton = document.getElementById("returnMenuButton");
+if (!canvas) {
+    throw new Error(
+        "Não foi encontrado o elemento #gameCanvas no index.html."
+    );
+}
 
-const aboutModal = document.getElementById("aboutModal");
-const closeAboutButton = document.getElementById("closeAboutButton");
-
-const journalButton = document.getElementById("journalButton");
-const closeJournalButton = document.getElementById("closeJournal");
-
-const flashlightButton = document.getElementById("flashlightBtn");
-
-const hud = document.getElementById("hud");
-
-/* ==========================================
+/* ======================================
    ESTADO DO JOGO
-========================================== */
-
-let scene;
-let camera;
-let renderer;
-
-let world;
-let player;
-let controls;
-let gameInterface;
-let audio;
-let flashlight;
-let interactions;
-let inventoryUI;
-let doors;
-let interior;
-let apparition;
-let lighting;
-let effects;
-let journal;
-let hospital;
-let school;
-let locationClues;
-let locationMissions;
-
-let animationFrame = null;
-let previousTime = 0;
-let elapsedTime = 0;
-let saveTimer = 0;
-let apparitionTimer = 0;
+====================================== */
 
 let gameStarted = false;
 let gamePaused = false;
 let gameDestroyed = false;
 
+let animationFrame = null;
+let previousTime = 0;
+let elapsedTime = 0;
+let saveTimer = 0;
+
+const clock = new THREE.Clock();
+
 const collectedClues = new Set();
 const openedBuildings = new Set();
-const completedMissions = new Set();
 
-const raycaster = new THREE.Raycaster();
-const screenCenter = new THREE.Vector2(0, 0);
+/* ======================================
+   CENA
+====================================== */
 
-/* ==========================================
-   INICIALIZAÇÃO
-========================================== */
+const scene = new THREE.Scene();
 
-function initializeGame() {
-    scene = new THREE.Scene();
+scene.background = new THREE.Color(0x080b12);
+scene.fog = new THREE.FogExp2(0x080b12, 0.009);
 
-    scene.background = new THREE.Color(0x080b10);
-    scene.fog = new THREE.FogExp2(0x080b10, 0.012);
+/* ======================================
+   CÂMERA
+====================================== */
 
-    camera = new THREE.PerspectiveCamera(
-        75,
-        window.innerWidth / window.innerHeight,
-        0.1,
-        1000
-    );
+const camera = new THREE.PerspectiveCamera(
+    75,
+    window.innerWidth / window.innerHeight,
+    0.1,
+    500
+);
 
-    renderer = new THREE.WebGLRenderer({
-        antialias: true,
-        powerPreference: "high-performance"
-    });
+/* ======================================
+   RENDERIZADOR
+====================================== */
 
-    renderer.setSize(
-        window.innerWidth,
-        window.innerHeight
-    );
+const renderer = new THREE.WebGLRenderer({
+    canvas,
+    antialias: true,
+    powerPreference: "high-performance"
+});
 
-    renderer.setPixelRatio(
-        Math.min(window.devicePixelRatio, 1.8)
-    );
+renderer.setPixelRatio(
+    Math.min(window.devicePixelRatio, 2)
+);
 
-    renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.setSize(
+    window.innerWidth,
+    window.innerHeight
+);
 
-    renderer.outputColorSpace = THREE.SRGBColorSpace;
-    renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.1;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 0.85;
 
-    gameContainer.appendChild(renderer.domElement);
+/* ======================================
+   SISTEMAS DO JOGO
+====================================== */
 
-    /* Iluminação */
+const lighting = createLighting(scene);
+const world = createWorld(scene);
+const player = createPlayer(camera, scene);
 
-    lighting = createLighting(scene);
+/*
+  IMPORTANTE:
+  Passamos o objeto completo do jogador.
+  Assim os controles conseguem acessar
+  a resistência física e a velocidade.
+*/
 
-    /* Mundo */
+const controls = createControls(
+    camera,
+    renderer.domElement,
+    player
+);
 
-    world = createWorld(scene);
+const gameInterface = createInterface();
+const audio = createAudio();
 
-    /* Personagem */
+const flashlightButton =
+    document.querySelector("#flashlightButton");
 
-    player = createPlayer(camera, scene);
+const flashlight = createFlashlight(
+    camera,
+    flashlightButton
+);
 
-    const playerObject = player.group || player.playerGroup || player;
+const interactions = createInteractions(
+    scene,
+    camera
+);
 
-    /* Controles ligados ao personagem */
+const inventory = createInventory();
+const inventoryUI = setupInventoryUI();
 
-    controls = createControls(
-        camera,
-        renderer.domElement,
-        playerObject
-    );
+const doors = createDoors(scene);
+const interior = createInterior(scene);
 
-    /* Interface */
+const apparition = createApparition(scene);
+const effects = createInteractionEffects(scene);
 
-    gameInterface = createInterface();
+const journal = createJournal();
 
-    /* Áudio */
+const hospital = createHospital(scene);
+const school = createSchool(scene);
 
-    audio = createAudio();
+const locationClues = createLocationClues(scene);
+const locationMissions = createLocationMissions();
 
-    /* Lanterna */
+/* ======================================
+   INTERFACE HTML
+====================================== */
 
-    flashlight = createFlashlight(
-        camera,
-        flashlightButton
-    );
+const startScreen =
+    document.querySelector("#startScreen");
 
-    /* Interações */
+const pauseScreen =
+    document.querySelector("#pauseScreen");
 
-    interactions = createInteractions(
-        scene,
-        camera
-    );
+const gameOverScreen =
+    document.querySelector("#gameOverScreen");
 
-    /* Inventário */
+const startButton =
+    document.querySelector("#startButton");
 
-    inventoryUI = setupInventoryUI();
+const continueButton =
+    document.querySelector("#continueButton");
 
-    /* Construções */
+const resumeButton =
+    document.querySelector("#resumeButton");
 
-    interior = createInterior(scene);
+const newGameButton =
+    document.querySelector("#newGameButton");
 
-    hospital = createHospital(scene);
+const journalButton =
+    document.querySelector("#journalButton");
 
-    school = createSchool(scene);
+const journalPanel =
+    document.querySelector("#journalPanel");
 
-    /* Portas */
+const journalClose =
+    document.querySelector("#journalClose");
 
-    doors = createDoors(scene);
+const inventoryButton =
+    document.querySelector("#inventoryButton");
 
-    if (doors.addDoor) {
-        doors.addDoor(
-            43.9,
-            1.5,
-            -6,
-            0,
-            "Delegacia"
-        );
+const inventoryPanel =
+    document.querySelector("#inventoryPanel");
 
-        doors.addDoor(
-            43.9,
-            1.5,
-            -38,
-            0,
-            "Casa abandonada"
-        );
+const missionText =
+    document.querySelector("#missionText");
+
+const staminaBar =
+    document.querySelector("#staminaBar");
+
+const staminaValue =
+    document.querySelector("#staminaValue");
+
+/* ======================================
+   UTILITÁRIOS
+====================================== */
+
+function showElement(element) {
+    if (element) {
+        element.classList.remove("hidden");
+        element.style.display = "";
+    }
+}
+
+function hideElement(element) {
+    if (element) {
+        element.classList.add("hidden");
+    }
+}
+
+function showMessage(message, duration = 3000) {
+    gameInterface.showMessage(message, duration);
+}
+
+function updateMission(message) {
+    if (missionText) {
+        missionText.textContent = message;
     }
 
-    /* Aparição */
-
-    apparition = createApparition(scene);
-
-    /* Efeitos */
-
-    effects = createInteractionEffects(scene);
-
-    /* Diário */
-
-    journal = createJournal();
-
-    /* Pistas especiais */
-
-    locationClues = createLocationClues(scene);
-
-    /* Missões */
-
-    locationMissions = createLocationMissions();
-
-    updateContinueButton();
-
-    setupEvents();
-
-    window.addEventListener("resize", onResize);
-
-    console.log("A Cidade Sem Rosto inicializada.");
+    gameInterface.setMission(message);
 }
 
-/* ==========================================
-   EVENTOS
-========================================== */
+/* ======================================
+   CRIAR PORTAS
+====================================== */
 
-function setupEvents() {
-    startButton?.addEventListener("click", startNewGame);
+const policeDoor = doors.addDoor(
+    43.9,
+    1.5,
+    -6,
+    0,
+    "Delegacia"
+);
 
-    continueButton?.addEventListener("click", continueGame);
+const houseDoor = doors.addDoor(
+    43.9,
+    1.5,
+    -38,
+    0,
+    "Casa abandonada"
+);
 
-    aboutButton?.addEventListener("click", () => {
-        aboutModal?.classList.remove("hidden");
-    });
-
-    closeAboutButton?.addEventListener("click", () => {
-        aboutModal?.classList.add("hidden");
-    });
-
-    resumeButton?.addEventListener("click", resumeGame);
-
-    returnMenuButton?.addEventListener("click", returnToMenu);
-
-    closeJournalButton?.addEventListener("click", () => {
-        document.getElementById("journalPanel")?.classList.add("hidden");
-    });
-
-    journalButton?.addEventListener("click", () => {
-        document.getElementById("journalPanel")?.classList.toggle("hidden");
-    });
-
-    document.addEventListener("keydown", onGameKeyDown);
-
-    document.addEventListener(
-        "pointerlockchange",
-        onPointerLockChange
-    );
-
-    window.addEventListener("beforeunload", saveCurrentGame);
-}
-
-/* ==========================================
-   NOVO JOGO
-========================================== */
+/* ======================================
+   INICIAR NOVO JOGO
+====================================== */
 
 function startNewGame() {
     deleteSave();
 
     collectedClues.clear();
     openedBuildings.clear();
-    completedMissions.clear();
+
+    inventory.clear();
+    journal.clear();
+    locationMissions.reset();
+
+    if (player.group) {
+        player.group.position.set(0, 0, 8);
+    }
 
     elapsedTime = 0;
     saveTimer = 0;
-    apparitionTimer = 0;
 
-    journal.clear();
-
-    if (player?.group) {
-        player.group.position.set(0, 0, 8);
-        player.group.rotation.set(0, 0, 0);
-    }
-
-    if (camera) {
-        camera.rotation.set(0, 0, 0);
-        camera.position.set(0, 1.7, 0);
-    }
-
-    gameStarted = true;
     gamePaused = false;
+    gameStarted = true;
 
-    mainMenu?.classList.add("hidden");
-    pauseMenu?.classList.add("hidden");
-    gameContainer?.classList.remove("hidden");
-    hud?.classList.remove("hidden");
+    gameInterface.startClock();
+    gameInterface.showHUD();
 
-    gameInterface?.showHUD?.();
-    gameInterface?.setMission?.(
+    updateMission(
         "Explore a cidade e descubra o que aconteceu."
     );
 
-    gameInterface?.startClock?.();
+    hideElement(startScreen);
+    hideElement(pauseScreen);
 
-    audio?.start?.();
+    audio.start();
 
-    controls?.setMovementEnabled(true);
-    controls?.lock();
-
-    previousTime = performance.now();
+    controls.lock();
 
     startAnimation();
 }
 
-/* ==========================================
+/* ======================================
    CONTINUAR JOGO
-========================================== */
+====================================== */
 
 function continueGame() {
     const savedData = loadGame();
 
     if (!savedData) {
-        startNewGame();
+        showMessage("Nenhum progresso salvo encontrado.");
         return;
     }
 
     collectedClues.clear();
     openedBuildings.clear();
-    completedMissions.clear();
-
-    elapsedTime = savedData.playTime || 0;
 
     (savedData.collectedClues || []).forEach((id) => {
         collectedClues.add(id);
     });
 
-    (savedData.openedBuildings || []).forEach((id) => {
-        openedBuildings.add(id);
+    (savedData.openedBuildings || []).forEach((name) => {
+        openedBuildings.add(name);
     });
 
-    (savedData.completedMissions || []).forEach((id) => {
-        completedMissions.add(id);
-    });
-
-    if (savedData.position && player?.group) {
+    if (savedData.position && player.group) {
         player.group.position.set(
-            savedData.position.x ?? 0,
-            0,
-            savedData.position.z ?? 8
+            savedData.position.x || 0,
+            savedData.position.y || 0,
+            savedData.position.z || 8
         );
     }
 
-    journal?.restore?.(savedData.journal || []);
+    if (Array.isArray(savedData.journal)) {
+        journal.restore(savedData.journal);
+    }
+
+    if (Array.isArray(savedData.completedMissions)) {
+        locationMissions.restore(
+            savedData.completedMissions
+        );
+    }
+
+    if (Array.isArray(savedData.collectedClues)) {
+        savedData.collectedClues.forEach((id) => {
+            inventory.add({
+                id,
+                name: id.replaceAll("_", " "),
+                description: "Pista encontrada anteriormente.",
+                category: "Pista"
+            });
+        });
+    }
+
+    elapsedTime = savedData.playTime || 0;
 
     gameStarted = true;
     gamePaused = false;
 
-    mainMenu?.classList.add("hidden");
-    pauseMenu?.classList.add("hidden");
-    gameContainer?.classList.remove("hidden");
-    hud?.classList.remove("hidden");
+    gameInterface.startClock();
+    gameInterface.showHUD();
 
-    gameInterface?.showHUD?.();
-    gameInterface?.startClock?.();
+    updateMission(
+        "Continue investigando os mistérios da cidade."
+    );
 
-    audio?.start?.();
+    hideElement(startScreen);
+    hideElement(pauseScreen);
 
-    controls?.setMovementEnabled(true);
-    controls?.lock();
+    audio.start();
 
-    previousTime = performance.now();
+    controls.lock();
 
     startAnimation();
 }
 
-/* ==========================================
-   BOTÃO CONTINUAR
-========================================== */
+/* ======================================
+   PAUSAR JOGO
+====================================== */
 
-function updateContinueButton() {
-    if (!continueButton) return;
-
-    continueButton.style.display = hasSave()
-        ? "inline-flex"
-        : "none";
-}
-
-/* ==========================================
-   TECLADO
-========================================== */
-
-function onGameKeyDown(event) {
+function pauseGame() {
     if (!gameStarted || gamePaused) return;
 
-    if (event.code === "Escape") {
-        if (document.pointerLockElement) {
-            pauseGame();
+    gamePaused = true;
+
+    controls.setMovementEnabled(false);
+
+    gameInterface.stopClock();
+
+    audio.stop();
+
+    showElement(pauseScreen);
+
+    controls.unlock();
+}
+
+/* ======================================
+   RETOMAR JOGO
+====================================== */
+
+function resumeGame() {
+    if (!gameStarted) return;
+
+    gamePaused = false;
+
+    controls.setMovementEnabled(true);
+
+    hideElement(pauseScreen);
+
+    audio.start();
+
+    controls.lock();
+
+    gameInterface.startClock();
+
+    startAnimation();
+}
+
+/* ======================================
+   LOCALIZAR PISTAS ESPECIAIS
+====================================== */
+
+const clueRaycaster = new THREE.Raycaster();
+
+clueRaycaster.far = 3.5;
+
+function getLocationClueTarget() {
+    clueRaycaster.setFromCamera(
+        new THREE.Vector2(0, 0),
+        camera
+    );
+
+    const intersections =
+        clueRaycaster.intersectObjects(
+            locationClues,
+            true
+        );
+
+    if (!intersections.length) return null;
+
+    for (const intersection of intersections) {
+        let object = intersection.object;
+
+        while (object) {
+            if (object.userData?.clue) {
+                return object;
+            }
+
+            object = object.parent;
         }
     }
 
-    if (event.code === "KeyF") {
-        flashlight?.toggle?.();
+    return null;
+}
+
+/* ======================================
+   COLETAR PISTA ESPECIAL
+====================================== */
+
+function collectLocationClue(object) {
+    if (!object || object.userData.collected) {
+        return false;
     }
 
-    if (event.code === "KeyJ") {
-        document.getElementById("journalPanel")
-            ?.classList.toggle("hidden");
+    const clue = object.userData.clue;
+
+    if (!clue || collectedClues.has(clue.id)) {
+        return false;
     }
 
-    if (event.code === "Tab") {
-        event.preventDefault();
-        inventoryUI?.toggle?.();
-    }
+    collectedClues.add(clue.id);
 
-    if (event.code === "KeyE") {
-        event.preventDefault();
-        tryInteraction();
+    object.userData.collected = true;
+    object.visible = false;
+
+    const added = inventory.add({
+        id: clue.id,
+        name: clue.title || clue.name,
+        description: clue.description,
+        category: clue.category || "Pista"
+    });
+
+    journal.addEntry(
+        clue.title || clue.name,
+        clue.description,
+        clue.category || "Pista"
+    );
+
+    effects.burst?.(
+        object.position.clone(),
+        0x9bc7ff
+    );
+
+    audio.playDiscovery?.();
+
+    showMessage(
+        `Pista encontrada: ${clue.title || clue.name}`
+    );
+
+    checkLocationMissions();
+
+    return added;
+}
+
+/* ======================================
+   VERIFICAR MISSÕES
+====================================== */
+
+function checkLocationMissions() {
+    const result = locationMissions.checkCompletion(
+        [...collectedClues]
+    );
+
+    if (result && result.completed) {
+        showMessage(
+            `Missão concluída: ${result.name}`,
+            5000
+        );
+
+        journal.addEntry(
+            result.name,
+            result.description,
+            "Missão"
+        );
     }
 }
 
-/* ==========================================
-   INTERAÇÕES
-========================================== */
+/* ======================================
+   LOCALIZAR PORTAS
+====================================== */
+
+const doorRaycaster = new THREE.Raycaster();
+
+doorRaycaster.far = 3.5;
+
+function getDoorTarget() {
+    doorRaycaster.setFromCamera(
+        new THREE.Vector2(0, 0),
+        camera
+    );
+
+    const doorGroups = doors.getDoors();
+
+    const intersections =
+        doorRaycaster.intersectObjects(
+            doorGroups,
+            true
+        );
+
+    if (!intersections.length) return null;
+
+    for (const intersection of intersections) {
+        let object = intersection.object;
+
+        while (object) {
+            if (doorGroups.includes(object)) {
+                return object;
+            }
+
+            object = object.parent;
+        }
+    }
+
+    return null;
+}
+
+/* ======================================
+   ABRIR E FECHAR PORTAS
+====================================== */
+
+function toggleDoor(door) {
+    if (!door) return false;
+
+    const changed = doors.toggle(door);
+
+    if (!changed) return false;
+
+    const name = door.userData.name || "Local";
+
+    if (door.userData.isOpen) {
+        openedBuildings.add(name);
+        showMessage(`${name}: porta aberta.`);
+        audio.playDiscovery?.();
+    } else {
+        showMessage(`${name}: porta fechada.`);
+    }
+
+    return true;
+}
+
+/* ======================================
+   INTERAÇÃO PRINCIPAL
+====================================== */
 
 function tryInteraction() {
+    if (!gameStarted || gamePaused) return;
+
     const clue = getLocationClueTarget();
 
     if (clue) {
@@ -457,287 +605,224 @@ function tryInteraction() {
         return;
     }
 
-    interactions?.interact?.();
+    interactions.interact();
 }
 
-/* ==========================================
-   IDENTIFICAR PISTAS ESPECIAIS
-========================================== */
+/* ======================================
+   ATUALIZAR RESISTÊNCIA
+====================================== */
 
-function getLocationClueTarget() {
-    if (!Array.isArray(locationClues)) return null;
+function updateStamina() {
+    const stamina = player.getStamina?.() ?? 100;
 
-    const available = locationClues.filter((clue) => {
-        const data = clue.userData?.clue;
-
-        return data && !collectedClues.has(data.id);
-    });
-
-    if (available.length === 0) return null;
-
-    raycaster.setFromCamera(screenCenter, camera);
-
-    const hits = raycaster.intersectObjects(
-        available,
-        true
-    );
-
-    if (hits.length === 0) return null;
-
-    let object = hits[0].object;
-
-    while (object && !object.userData?.clue) {
-        object = object.parent;
+    if (staminaBar) {
+        staminaBar.style.width =
+            `${THREE.MathUtils.clamp(stamina, 0, 100)}%`;
     }
 
-    return object?.userData?.clue ? object : null;
-}
-
-/* ==========================================
-   COLETAR PISTA
-========================================== */
-
-function collectLocationClue(object) {
-    const clue = object.userData.clue;
-
-    if (!clue || collectedClues.has(clue.id)) return;
-
-    collectedClues.add(clue.id);
-
-    object.visible = false;
-
-    journal?.addEntry?.(
-        clue.title || clue.name || "Nova pista",
-        clue.description || "Uma pista encontrada na cidade.",
-        clue.category || "Investigação"
-    );
-
-    window.dispatchEvent(
-        new CustomEvent("inventoryItemAdded", {
-            detail: {
-                id: clue.id,
-                name: clue.title || clue.name || "Pista encontrada",
-                description: clue.description || "Uma nova pista foi encontrada."
-            }
-        })
-    );
-
-    effects?.burst?.(
-        object.position,
-        0x9bbbd3
-    );
-
-    audio?.playDiscovery?.();
-
-    gameInterface?.showMessage?.(
-        "Nova pista adicionada ao diário."
-    );
-
-    checkLocationMissions();
-}
-
-/* ==========================================
-   MISSÕES DE LOCALIZAÇÃO
-========================================== */
-
-function checkLocationMissions() {
-    const result = locationMissions?.checkCompletion?.(
-        collectedClues
-    );
-
-    if (!result) return;
-
-    if (result.completed && result.name) {
-        completedMissions.add(result.name);
-
-        gameInterface?.showMessage?.(
-            "Local investigado: " + result.name
-        );
-    } else if (typeof result === "string") {
-        completedMissions.add(result);
-
-        gameInterface?.showMessage?.(
-            "Investigação concluída: " + result
-        );
+    if (staminaValue) {
+        staminaValue.textContent =
+            `${Math.round(stamina)}%`;
     }
 }
 
-/* ==========================================
-   PORTAS
-========================================== */
-
-function getDoorTarget() {
-    const availableDoors = doors?.getDoors?.();
-
-    if (!Array.isArray(availableDoors)) return null;
-
-    raycaster.setFromCamera(screenCenter, camera);
-
-    const hits = raycaster.intersectObjects(
-        availableDoors,
-        true
-    );
-
-    if (hits.length === 0) return null;
-
-    let object = hits[0].object;
-
-    while (
-        object &&
-        !availableDoors.includes(object) &&
-        !availableDoors.some((door) => door === object)
-    ) {
-        object = object.parent;
-    }
-
-    return object || null;
-}
-
-function toggleDoor(door) {
-    if (!door) return;
-
-    const result = doors?.toggle?.(door);
-
-    if (result) {
-        const name = door.userData?.name || "Porta";
-
-        openedBuildings.add(name);
-
-        effects?.burst?.(
-            door.position,
-            0x9bbbd3
-        );
-
-        gameInterface?.showMessage?.(
-            "Você abriu: " + name
-        );
-
-        audio?.playDiscovery?.();
-    }
-}
-
-/* ==========================================
-   PAUSAR
-========================================== */
-
-function pauseGame() {
-    if (!gameStarted || gamePaused) return;
-
-    gamePaused = true;
-
-    controls?.setMovementEnabled(false);
-    controls?.unlock();
-
-    audio?.stop?.();
-
-    gameInterface?.stopClock?.();
-
-    pauseMenu?.classList.remove("hidden");
-
-    saveCurrentGame();
-}
-
-/* ==========================================
-   RETOMAR
-========================================== */
-
-function resumeGame() {
-    if (!gameStarted) return;
-
-    gamePaused = false;
-
-    pauseMenu?.classList.add("hidden");
-
-    controls?.setMovementEnabled(true);
-    controls?.lock();
-
-    audio?.start?.();
-
-    gameInterface?.startClock?.();
-
-    previousTime = performance.now();
-}
-
-/* ==========================================
-   VOLTAR AO MENU
-========================================== */
-
-function returnToMenu() {
-    saveCurrentGame();
-
-    gamePaused = false;
-    gameStarted = false;
-
-    controls?.unlock();
-    controls?.setMovementEnabled(false);
-
-    audio?.stop?.();
-
-    gameInterface?.stopClock?.();
-    gameInterface?.hideHUD?.();
-
-    pauseMenu?.classList.add("hidden");
-    gameContainer?.classList.add("hidden");
-    hud?.classList.add("hidden");
-    mainMenu?.classList.remove("hidden");
-
-    updateContinueButton();
-}
-
-/* ==========================================
-   SALVAMENTO
-========================================== */
+/* ======================================
+   SALVAR PROGRESSO
+====================================== */
 
 function saveCurrentGame() {
-    if (!gameStarted || !player?.group) return;
-
-    const position = player.group.position;
+    if (!gameStarted || !player.group) return;
 
     saveGame({
         position: {
-            x: position.x,
-            y: position.y,
-            z: position.z
+            x: player.group.position.x,
+            y: player.group.position.y,
+            z: player.group.position.z
         },
 
-        collectedClues: Array.from(collectedClues),
+        collectedClues: [...collectedClues],
 
-        openedBuildings: Array.from(openedBuildings),
+        openedBuildings: [...openedBuildings],
 
-        journal: journal?.getEntries?.() || [],
+        journal: journal.getEntries(),
 
-        completedMissions: Array.from(completedMissions),
+        completedMissions:
+            locationMissions.getCompleted(),
 
         currentChapter: 1,
 
         playTime: elapsedTime
     });
-
-    updateContinueButton();
 }
 
-/* ==========================================
-   POINTER LOCK
-========================================== */
+/* ======================================
+   ATUALIZAR APARIÇÃO
+====================================== */
 
-function onPointerLockChange() {
-    if (!gameStarted) return;
+let apparitionTimer = 0;
 
-    if (
-        !document.pointerLockElement &&
-        !gamePaused
-    ) {
-        pauseGame();
+function updateApparition(delta) {
+    apparitionTimer += delta;
+
+    if (apparitionTimer >= 95) {
+        apparitionTimer = 0;
+
+        const shouldAppear = Math.random() > 0.35;
+
+        if (shouldAppear) {
+            apparition.appearNearPlayer(camera);
+        }
+    }
+
+    apparition.update(delta, camera);
+}
+
+/* ======================================
+   CICLO PRINCIPAL
+====================================== */
+
+function updateGame(delta) {
+    const movement = controls.update(delta);
+
+    player.update?.(
+        delta,
+        movement?.isSprinting || false
+    );
+
+    updateStamina();
+
+    world.update?.(delta);
+    hospital.update?.(delta);
+    school.update?.(delta);
+    doors.update?.(delta);
+    flashlight.update?.(delta);
+    effects.update?.(delta);
+    interactions.updatePrompt?.();
+
+    updateApparition(delta);
+
+    elapsedTime += delta;
+    saveTimer += delta;
+
+    if (saveTimer >= 30) {
+        saveTimer = 0;
+        saveCurrentGame();
     }
 }
 
-/* ==========================================
-   REDIMENSIONAMENTO
-========================================== */
+/* ======================================
+   ANIMAÇÃO
+====================================== */
 
-function onResize() {
-    if (!camera || !renderer) return;
+function animate() {
+    if (!gameStarted || gamePaused || gameDestroyed) {
+        return;
+    }
 
+    animationFrame = requestAnimationFrame(animate);
+
+    const delta = Math.min(clock.getDelta(), 0.05);
+
+    updateGame(delta);
+
+    renderer.render(scene, camera);
+}
+
+function startAnimation() {
+    if (animationFrame !== null) {
+        cancelAnimationFrame(animationFrame);
+    }
+
+    clock.start();
+    previousTime = performance.now();
+
+    animate();
+}
+
+/* ======================================
+   EVENTOS DE TECLADO
+====================================== */
+
+function onKeyDown(event) {
+    if (event.code === "Escape") {
+        if (gameStarted && !gamePaused) {
+            pauseGame();
+        }
+
+        return;
+    }
+
+    if (!gameStarted || gamePaused) return;
+
+    if (event.code === "KeyE") {
+        tryInteraction();
+    }
+
+    if (event.code === "KeyJ") {
+        journalPanel?.classList.toggle("active");
+    }
+
+    if (event.code === "KeyF") {
+        flashlight.toggle();
+    }
+}
+
+/* ======================================
+   BOTÕES
+====================================== */
+
+startButton?.addEventListener(
+    "click",
+    startNewGame
+);
+
+newGameButton?.addEventListener(
+    "click",
+    startNewGame
+);
+
+continueButton?.addEventListener(
+    "click",
+    continueGame
+);
+
+resumeButton?.addEventListener(
+    "click",
+    resumeGame
+);
+
+journalButton?.addEventListener("click", () => {
+    journalPanel?.classList.toggle("active");
+});
+
+journalClose?.addEventListener("click", () => {
+    journalPanel?.classList.remove("active");
+});
+
+inventoryButton?.addEventListener("click", () => {
+    inventoryUI.toggle();
+});
+
+/* ======================================
+   EVENTOS GERAIS
+====================================== */
+
+document.addEventListener("keydown", onKeyDown);
+
+document.addEventListener(
+    "pointerlockchange",
+    () => {
+        if (
+            gameStarted &&
+            !gamePaused &&
+            document.pointerLockElement !== renderer.domElement
+        ) {
+            pauseGame();
+        }
+    }
+);
+
+window.addEventListener("resize", () => {
     camera.aspect =
         window.innerWidth / window.innerHeight;
 
@@ -747,101 +832,37 @@ function onResize() {
         window.innerWidth,
         window.innerHeight
     );
-}
 
-/* ==========================================
-   APARIÇÃO
-========================================== */
+    renderer.setPixelRatio(
+        Math.min(window.devicePixelRatio, 2)
+    );
+});
 
-function updateApparition(delta) {
-    apparitionTimer += delta;
+/* ======================================
+   VISIBILIDADE DA PÁGINA
+====================================== */
 
-    if (apparitionTimer >= 95) {
-        apparitionTimer = 0;
-
-        if (Math.random() > 0.25 && camera) {
-            apparition?.appearNearPlayer?.(camera);
+document.addEventListener(
+    "visibilitychange",
+    () => {
+        if (
+            document.hidden &&
+            gameStarted &&
+            !gamePaused
+        ) {
+            saveCurrentGame();
+            pauseGame();
         }
     }
+);
 
-    apparition?.update?.(delta, camera);
-}
-
-/* ==========================================
-   ATUALIZAÇÃO DO JOGO
-========================================== */
-
-function updateGame(delta) {
-    controls?.update?.(delta);
-
-    world?.update?.(delta);
-
-    hospital?.update?.(delta);
-
-    school?.update?.(delta);
-
-    doors?.update?.(delta);
-
-    flashlight?.update?.(delta);
-
-    effects?.update?.(delta);
-
-    interactions?.updatePrompt?.();
-
-    updateApparition(delta);
-
-    saveTimer += delta;
-
-    if (saveTimer >= 60) {
-        saveTimer = 0;
-        saveCurrentGame();
-    }
-
-    elapsedTime += delta;
-}
-
-/* ==========================================
-   LOOP DE ANIMAÇÃO
-========================================== */
-
-function animate(currentTime) {
-    if (gameDestroyed) return;
-
-    animationFrame = requestAnimationFrame(animate);
-
-    if (!gameStarted || gamePaused) return;
-
-    const delta = Math.min(
-        (currentTime - previousTime) / 1000,
-        0.05
-    );
-
-    previousTime = currentTime;
-
-    updateGame(delta);
-
-    renderer.render(scene, camera);
-}
-
-/* ==========================================
-   INICIAR ANIMAÇÃO
-========================================== */
-
-function startAnimation() {
-    if (animationFrame !== null) {
-        cancelAnimationFrame(animationFrame);
-    }
-
-    previousTime = performance.now();
-
-    animationFrame = requestAnimationFrame(animate);
-}
-
-/* ==========================================
-   ENCERRAR RECURSOS
-========================================== */
+/* ======================================
+   ENCERRAR JOGO
+====================================== */
 
 function destroyGame() {
+    if (gameDestroyed) return;
+
     gameDestroyed = true;
 
     if (animationFrame !== null) {
@@ -850,51 +871,54 @@ function destroyGame() {
 
     saveCurrentGame();
 
-    controls?.destroy?.();
-    interactions?.destroy?.();
-    inventoryUI?.destroy?.();
-    journal?.destroy?.();
-    audio?.destroy?.();
-    flashlight?.destroy?.();
-    apparition?.destroy?.();
-    effects?.destroy?.();
-    hospital?.destroy?.();
-    school?.destroy?.();
-    doors?.destroy?.();
-    interior?.destroy?.();
-    world?.destroy?.();
-    lighting?.destroy?.();
+    gameInterface.stopClock();
 
-    renderer?.dispose();
+    controls.destroy();
+    flashlight.destroy();
+    interactions.destroy();
+    inventoryUI.close?.();
 
-    window.removeEventListener("resize", onResize);
-    window.removeEventListener("beforeunload", saveCurrentGame);
+    audio.destroy();
+    apparition.destroy();
+    effects.destroy();
+    journal.destroy();
 
-    document.removeEventListener("keydown", onGameKeyDown);
-    document.removeEventListener(
-        "pointerlockchange",
-        onPointerLockChange
-    );
+    doors.destroy();
+    interior.destroy();
+    hospital.destroy();
+    school.destroy();
+    world.destroy();
+    lighting.destroy();
+    player.destroy?.();
+
+    renderer.dispose();
 }
 
-/* ==========================================
-   INICIAR A APLICAÇÃO
-========================================== */
+window.addEventListener(
+    "pagehide",
+    destroyGame,
+    { once: true }
+);
 
-try {
-    initializeGame();
-} catch (error) {
-    console.error(
-        "Erro ao inicializar A Cidade Sem Rosto:",
-        error
-    );
+/* ======================================
+   MENU INICIAL
+====================================== */
 
-    const loadingScreen = document.getElementById("loadingScreen");
+if (continueButton) {
+    continueButton.disabled = !hasSave();
 
-    if (loadingScreen) {
-        loadingScreen.textContent =
-            "Não foi possível iniciar o jogo. Verifique os arquivos e o console.";
+    if (!hasSave()) {
+        continueButton.style.opacity = "0.45";
+        continueButton.style.cursor = "not-allowed";
     }
 }
 
-window.addEventListener("pagehide", destroyGame);
+gameInterface.hideHUD();
+
+showElement(startScreen);
+
+renderer.render(scene, camera);
+
+console.log(
+    "A Cidade Sem Rosto: sistemas principais inicializados."
+);
