@@ -1,36 +1,85 @@
 
 export function setupInventoryUI() {
-    const panel = document.getElementById('inventory-panel');
-    const button = document.getElementById('inventory-button');
+  const panel = document.getElementById("inventoryPanel");
+  const button = document.getElementById("inventoryButton");
+  const items = document.getElementById("inventoryItems");
 
-    let opened = false;
+  if (!panel) {
+    console.error("Painel do inventário não encontrado.");
+    return;
+  }
 
-    function toggle() {
-        opened = !opened;
-        panel.classList.toggle('inventory-open', opened);
+  let isOpen = false;
+
+  function update() {
+    panel.classList.toggle("open", isOpen);
+
+    if (button) {
+      button.textContent = isOpen
+        ? "FECHAR INVENTÁRIO"
+        : "🎒 INVENTÁRIO";
+
+      button.setAttribute("aria-expanded", String(isOpen));
+    }
+  }
+
+  function open() {
+    isOpen = true;
+    update();
+  }
+
+  function close() {
+    isOpen = false;
+    update();
+  }
+
+  function toggle() {
+    isOpen = !isOpen;
+    update();
+  }
+
+  button?.addEventListener("click", toggle);
+
+  window.addEventListener("keydown", event => {
+    if (event.code !== "Tab") return;
+
+    event.preventDefault();
+
+    if (event.repeat) return;
+
+    toggle();
+  });
+
+  window.addEventListener("inventoryItemAdded", event => {
+    const item = event.detail;
+
+    if (!item || !items) return;
+
+    const emptyMessage = items.querySelector("p");
+
+    if (emptyMessage) {
+      emptyMessage.remove();
     }
 
-    function close() {
-        opened = false;
-        panel.classList.remove('inventory-open');
-    }
+    const card = document.createElement("div");
+    card.className = "inventory-item";
 
-    button.addEventListener('click', toggle);
+    const name = document.createElement("strong");
+    name.textContent = item.name || "Objeto desconhecido";
 
-    window.addEventListener('keydown', event => {
-        if (event.code === 'Tab') {
-            event.preventDefault();
-            toggle();
-        }
+    const description = document.createElement("p");
+    description.textContent = item.description || "Objeto encontrado.";
 
-        if (event.code === 'Escape' && opened) {
-            close();
-        }
-    });
+    card.append(name, description);
+    items.appendChild(card);
+  });
 
-    return {
-        toggle,
-        close,
-        isOpen: () => opened
-    };
+  update();
+
+  return {
+    open,
+    close,
+    toggle,
+    isOpen: () => isOpen
+  };
 }
