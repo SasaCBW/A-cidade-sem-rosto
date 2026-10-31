@@ -1,408 +1,285 @@
 
 import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js";
 
-/* ==========================================
-   PISTAS ESPECIAIS
-========================================== */
-
-export const locationClues = [
-    {
-        id: "hospital_record",
-        title: "Prontuário médico",
-        description:
-            "Um prontuário antigo. Os registros mostram que vários pacientes foram transferidos na mesma noite, mas não existe nenhum destino anotado.",
-        category: "Documento",
-        location: "Hospital abandonado",
-        position: [72, 0.9, -34],
-        type: "document"
-    },
-
-    {
-        id: "hospital_photo",
-        title: "Fotografia do hospital",
-        description:
-            "Uma fotografia antiga de um grupo de funcionários. Nenhum dos rostos pode ser identificado. No verso está escrito: 'Eles nunca estiveram aqui'.",
-        category: "Fotografia",
-        location: "Hospital abandonado",
-        position: [79, 0.9, -34],
-        type: "photo"
-    },
-
-    {
-        id: "school_diary",
-        title: "Diário de um estudante",
-        description:
-            "As últimas páginas descrevem uma cidade onde as pessoas começaram a desaparecer das fotografias. A última frase diz: 'Amanhã ninguém vai lembrar de mim'.",
-        category: "Diário",
-        location: "Escola abandonada",
-        position: [71, 0.9, -74],
-        type: "book"
-    },
-
-    {
-        id: "school_message",
-        title: "Mensagem na sala",
-        description:
-            "Uma mensagem escrita no quadro: 'Não confie nas fotografias. Algumas pessoas já não têm rosto'.",
-        category: "Mensagem",
-        location: "Escola abandonada",
-        position: [78, 2.1, -82],
-        type: "message"
-    }
+const CLUES = [
+  {
+    id: "hospital_record",
+    title: "Prontuário médico",
+    description:
+      "Um prontuário antigo encontrado no hospital. Há registros de pacientes que desapareceram sem explicação.",
+    category: "hospital",
+    position: [69, 0.95, -31],
+    type: "document",
+    text: "HOSPITAL MUNICIPAL\n\nREGISTRO DE PACIENTE\n\nPaciente: Não identificado\nData: 17/08/1998\n\nObservação: O paciente afirma que todas as pessoas da cidade perderam seus rostos.\n\nÚltima anotação: NÃO CONFIE NAS FOTOGRAFIAS."
+  },
+  {
+    id: "hospital_photo",
+    title: "Fotografia do hospital",
+    description:
+      "Uma fotografia antiga mostra o corredor do hospital. Uma figura estranha aparece ao fundo.",
+    category: "hospital",
+    position: [81, 0.95, -38],
+    type: "photo",
+    text: "ARQUIVO FOTOGRÁFICO\nHOSPITAL — 1998\n\nRegistro encontrado no setor de enfermagem."
+  },
+  {
+    id: "school_diary",
+    title: "Diário de estudante",
+    description:
+      "As páginas estão amareladas. A última anotação parece ter sido escrita às pressas.",
+    category: "school",
+    position: [69, 0.95, -72],
+    type: "document",
+    text: "MEU DIÁRIO\n\nHoje aconteceu de novo.\n\nAs pessoas continuam andando pela cidade, mas ninguém tem rosto nas fotografias.\n\nMinha mãe diz que está tudo normal.\n\nEu sei que ela está mentindo.\n\nAmanhã vou descobrir o que existe no prédio antigo."
+  },
+  {
+    id: "school_message",
+    title: "Bilhete escondido",
+    description:
+      "Um bilhete foi encontrado próximo à sala de aula. Ele indica que alguém conhecia o segredo da cidade.",
+    category: "school",
+    position: [81, 1.05, -81],
+    type: "note",
+    text: "SE VOCÊ ENCONTROU ISTO...\n\nNão procure pelas pessoas desaparecidas.\n\nProcure pelas fotografias.\n\nA cidade não esquece ninguém.\n\nELA APENAS APAGA OS ROSTOS."
+  }
 ];
 
-/* ==========================================
-   MATERIAIS
-========================================== */
+function createCanvasTexture(title, content, type) {
+  const canvas = document.createElement("canvas");
+  canvas.width = 512;
+  canvas.height = 640;
 
-const materials = {
-    paper: new THREE.MeshStandardMaterial({
-        color: 0xd0c8ae,
-        roughness: 0.95,
-        side: THREE.DoubleSide
-    }),
+  const ctx = canvas.getContext("2d");
 
-    darkPaper: new THREE.MeshStandardMaterial({
-        color: 0x77746b,
-        roughness: 1,
-        side: THREE.DoubleSide
-    }),
+  ctx.fillStyle = type === "photo" ? "#252525" : "#d2c7a8";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    photograph: new THREE.MeshStandardMaterial({
-        color: 0x252a2d,
-        roughness: 0.85
-    }),
+  if (type === "photo") {
+    ctx.fillStyle = "#101010";
+    ctx.fillRect(25, 25, 462, 590);
 
-    book: new THREE.MeshStandardMaterial({
-        color: 0x49352c,
-        roughness: 0.9
-    }),
+    ctx.fillStyle = "#777";
+    ctx.fillRect(55, 65, 402, 390);
 
-    glow: new THREE.MeshBasicMaterial({
-        color: 0x9bbbd3,
-        transparent: true,
-        opacity: 0.22
-    }),
+    ctx.fillStyle = "#303030";
+    ctx.fillRect(55, 65, 402, 390);
 
-    writing: new THREE.MeshBasicMaterial({
-        color: 0x252525
-    })
-};
+    ctx.fillStyle = "#171717";
+    ctx.fillRect(105, 240, 300, 215);
 
-/* ==========================================
-   TEXTURAS DAS PISTAS
-========================================== */
+    ctx.fillStyle = "#080808";
+    ctx.beginPath();
+    ctx.ellipse(255, 210, 48, 65, 0, 0, Math.PI * 2);
+    ctx.fill();
 
-function createTextTexture(title, subtitle) {
-    const canvas = document.createElement("canvas");
+    ctx.fillStyle = "#151515";
+    ctx.beginPath();
+    ctx.moveTo(180, 455);
+    ctx.lineTo(205, 280);
+    ctx.lineTo(305, 280);
+    ctx.lineTo(330, 455);
+    ctx.closePath();
+    ctx.fill();
 
-    canvas.width = 512;
-    canvas.height = 320;
+    ctx.fillStyle = "#dedede";
+    ctx.font = "bold 22px Arial";
+    ctx.fillText("ARQUIVO — 1998", 75, 530);
+    ctx.font = "16px Arial";
+    ctx.fillText("REGISTRO FOTOGRÁFICO", 75, 565);
+  } else {
+    ctx.fillStyle = "#29251e";
+    ctx.font = "bold 27px Georgia";
+    ctx.fillText(title.toUpperCase(), 38, 65);
 
-    const context = canvas.getContext("2d");
+    ctx.strokeStyle = "#8d8068";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(38, 88);
+    ctx.lineTo(474, 88);
+    ctx.stroke();
 
-    context.fillStyle = "#c9c1aa";
-    context.fillRect(0, 0, 512, 320);
+    ctx.fillStyle = "#302b23";
+    ctx.font = "20px Georgia";
 
-    context.fillStyle = "#34332f";
-    context.font = "bold 29px Georgia";
-    context.fillText(title, 30, 65);
+    const paragraphs = content.split("\n");
+    let y = 135;
 
-    context.strokeStyle = "#777064";
-    context.lineWidth = 2;
-    context.beginPath();
-    context.moveTo(30, 85);
-    context.lineTo(475, 85);
-    context.stroke();
+    for (const paragraph of paragraphs) {
+      if (paragraph.trim() === "") {
+        y += 18;
+        continue;
+      }
 
-    context.fillStyle = "#4c4942";
-    context.font = "20px Georgia";
+      const words = paragraph.split(" ");
+      let line = "";
 
-    const words = subtitle.split(" ");
-    let line = "";
-    let y = 130;
-
-    for (const word of words) {
+      for (const word of words) {
         const testLine = line + word + " ";
 
-        if (context.measureText(testLine).width > 445) {
-            context.fillText(line, 30, y);
-            line = word + " ";
-            y += 31;
+        if (ctx.measureText(testLine).width > 420) {
+          ctx.fillText(line, 40, y);
+          line = word + " ";
+          y += 31;
         } else {
-            line = testLine;
+          line = testLine;
         }
+      }
+
+      if (line) {
+        ctx.fillText(line, 40, y);
+        y += 38;
+      }
+
+      if (y > 575) break;
     }
+  }
 
-    context.fillText(line, 30, y);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.anisotropy = 4;
 
-    const texture = new THREE.CanvasTexture(canvas);
-    texture.colorSpace = THREE.SRGBColorSpace;
-
-    return texture;
+  return texture;
 }
 
-/* ==========================================
-   CRIAR DOCUMENTO
-========================================== */
+function createClueObject(data) {
+  const group = new THREE.Group();
+  group.position.set(...data.position);
 
-function createDocument(group, clue) {
-    const texture = createTextTexture(
-        clue.title,
-        "Arquivo encontrado durante a investigação. Os registros apresentam informações incompletas."
-    );
+  const isPhoto = data.type === "photo";
+  const isNote = data.type === "note";
 
-    const material = new THREE.MeshStandardMaterial({
-        map: texture,
-        roughness: 1,
-        side: THREE.DoubleSide
-    });
+  const width = isPhoto ? 0.65 : 0.48;
+  const height = isPhoto ? 0.78 : 0.65;
 
-    const paper = new THREE.Mesh(
-        new THREE.BoxGeometry(0.85, 0.035, 0.58),
-        materials.paper
-    );
+  const frameMaterial = new THREE.MeshStandardMaterial({
+    color: isPhoto ? 0x171717 : 0x594b35,
+    roughness: 0.9
+  });
 
-    paper.position.y = 0.12;
-    paper.rotation.x = -Math.PI / 2;
+  const frame = new THREE.Mesh(
+    new THREE.BoxGeometry(width + 0.08, height + 0.08, 0.045),
+    frameMaterial
+  );
 
-    group.add(paper);
+  frame.position.y = 0.025;
+  group.add(frame);
 
-    const writing = new THREE.Mesh(
-        new THREE.PlaneGeometry(0.78, 0.48),
-        material
-    );
+  const texture = createCanvasTexture(
+    data.title,
+    data.text,
+    data.type
+  );
 
-    writing.rotation.x = -Math.PI / 2;
-    writing.rotation.z = Math.PI / 2;
-    writing.position.set(0, 0.14, 0);
+  const paper = new THREE.Mesh(
+    new THREE.PlaneGeometry(width, height),
+    new THREE.MeshStandardMaterial({
+      map: texture,
+      roughness: 1,
+      side: THREE.DoubleSide
+    })
+  );
 
-    group.add(writing);
+  paper.position.z = 0.026;
+  paper.position.y = 0.025;
+  group.add(paper);
 
-    group.userData.extraMaterials = [material];
+  const glow = new THREE.PointLight(
+    0x8bbcff,
+    0.65,
+    2.8
+  );
+
+  glow.position.set(0, 0.45, 0.25);
+  group.add(glow);
+
+  const marker = new THREE.Mesh(
+    new THREE.SphereGeometry(0.055, 12, 12),
+    new THREE.MeshBasicMaterial({
+      color: 0x9bcaff
+    })
+  );
+
+  marker.position.set(0, 0.55, 0.12);
+  group.add(marker);
+
+  group.userData.clue = {
+    id: data.id,
+    title: data.title,
+    name: data.title,
+    description: data.description,
+    category: data.category,
+    text: data.text
+  };
+
+  group.userData.clueId = data.id;
+
+  group.userData.originalPosition = group.position.clone();
+
+  group.rotation.y = isPhoto ? -0.2 : 0.15;
+
+  return group;
 }
-
-/* ==========================================
-   CRIAR FOTOGRAFIA
-========================================== */
-
-function createPhoto(group) {
-    const frame = new THREE.Mesh(
-        new THREE.BoxGeometry(0.65, 0.04, 0.5),
-        materials.frame || materials.darkPaper
-    );
-
-    frame.position.y = 0.12;
-
-    group.add(frame);
-
-    const photo = new THREE.Mesh(
-        new THREE.PlaneGeometry(0.55, 0.39),
-        materials.photograph
-    );
-
-    photo.rotation.x = -Math.PI / 2;
-    photo.position.set(0, 0.145, 0);
-
-    group.add(photo);
-
-    const silhouetteMaterial = new THREE.MeshBasicMaterial({
-        color: 0x090d12
-    });
-
-    const figures = [];
-
-    for (let i = 0; i < 4; i++) {
-        const figure = new THREE.Mesh(
-            new THREE.CapsuleGeometry(0.045, 0.12, 3, 6),
-            silhouetteMaterial
-        );
-
-        figure.position.set(
-            -0.19 + i * 0.12,
-            0.15,
-            -0.02
-        );
-
-        figure.rotation.x = -Math.PI / 2;
-
-        group.add(figure);
-        figures.push(figure);
-    }
-
-    group.userData.extraMaterials = [silhouetteMaterial];
-}
-
-/* ==========================================
-   CRIAR DIÁRIO
-========================================== */
-
-function createBook(group) {
-    const cover = new THREE.Mesh(
-        new THREE.BoxGeometry(0.7, 0.12, 0.48),
-        materials.book
-    );
-
-    cover.position.y = 0.15;
-
-    group.add(cover);
-
-    const pages = new THREE.Mesh(
-        new THREE.BoxGeometry(0.64, 0.025, 0.43),
-        materials.paper
-    );
-
-    pages.position.y = 0.218;
-
-    group.add(pages);
-
-    const lineMaterial = new THREE.MeshBasicMaterial({
-        color: 0x655e50
-    });
-
-    for (let i = 0; i < 4; i++) {
-        const line = new THREE.Mesh(
-            new THREE.BoxGeometry(0.42, 0.008, 0.008),
-            lineMaterial
-        );
-
-        line.position.set(
-            0,
-            0.236,
-            -0.12 + i * 0.075
-        );
-
-        group.add(line);
-    }
-
-    group.userData.extraMaterials = [lineMaterial];
-}
-
-/* ==========================================
-   CRIAR MENSAGEM
-========================================== */
-
-function createMessage(group) {
-    const board = new THREE.Mesh(
-        new THREE.BoxGeometry(1.4, 0.8, 0.08),
-        new THREE.MeshStandardMaterial({
-            color: 0x18221e,
-            roughness: 0.95
-        })
-    );
-
-    board.position.y = 0.8;
-
-    group.add(board);
-
-    const texture = createTextTexture(
-        "NÃO ESQUEÇA",
-        "Algumas pessoas desapareceram das fotografias. Não confie nas imagens."
-    );
-
-    const message = new THREE.Mesh(
-        new THREE.PlaneGeometry(1.25, 0.65),
-        new THREE.MeshBasicMaterial({
-            map: texture,
-            transparent: false
-        })
-    );
-
-    message.position.set(0, 0.8, 0.045);
-
-    group.add(message);
-
-    group.userData.extraMaterials = [
-        board.material,
-        message.material
-    ];
-
-    group.userData.extraTextures = [texture];
-}
-
-/* ==========================================
-   CRIAR OBJETO DA PISTA
-========================================== */
-
-function createClueObject(clue) {
-    const group = new THREE.Group();
-
-    group.position.set(
-        clue.position[0],
-        clue.position[1],
-        clue.position[2]
-    );
-
-    group.userData.clue = clue;
-
-    const glow = new THREE.Mesh(
-        new THREE.SphereGeometry(0.48, 12, 12),
-        materials.glow
-    );
-
-    glow.position.y = 0.15;
-
-    group.add(glow);
-
-    switch (clue.type) {
-        case "document":
-            createDocument(group, clue);
-            break;
-
-        case "photo":
-            createPhoto(group);
-            break;
-
-        case "book":
-            createBook(group);
-            break;
-
-        case "message":
-            createMessage(group);
-            break;
-    }
-
-    const marker = new THREE.Mesh(
-        new THREE.TorusGeometry(0.18, 0.012, 6, 24),
-        new THREE.MeshBasicMaterial({
-            color: 0x9bbbd3,
-            transparent: true,
-            opacity: 0.65
-        })
-    );
-
-    marker.rotation.x = Math.PI / 2;
-    marker.position.y = 0.48;
-
-    group.add(marker);
-
-    group.userData.marker = marker;
-
-    group.traverse((object) => {
-        if (object.isMesh) {
-            object.castShadow = true;
-            object.receiveShadow = true;
-            object.userData.clueId = clue.id;
-        }
-    });
-
-    return group;
-}
-
-/* ==========================================
-   CRIAR TODAS AS PISTAS
-========================================== */
 
 export function createLocationClues(scene) {
-    const objects = [];
+  const clueObjects = [];
 
-    locationClues.forEach((clue) => {
-        const object = createClueObject(clue);
+  for (const data of CLUES) {
+    const clue = createClueObject(data);
 
-        scene.add(object);
+    scene.add(clue);
+    clueObjects.push(clue);
+  }
 
-        objects.push(object);
-    });
+  clueObjects.restoreCollected = function (savedIds = []) {
+    const collected = new Set(savedIds);
 
-    return objects;
+    for (const clue of clueObjects) {
+      const id = clue.userData.clue?.id;
+
+      clue.visible = !collected.has(id);
+    }
+  };
+
+  clueObjects.reset = function () {
+    for (const clue of clueObjects) {
+      clue.visible = true;
+    }
+  };
+
+  clueObjects.getById = function (id) {
+    return clueObjects.find(
+      clue => clue.userData.clue?.id === id
+    ) || null;
+  };
+
+  clueObjects.getAll = function () {
+    return [...clueObjects];
+  };
+
+  clueObjects.destroy = function () {
+    for (const clue of clueObjects) {
+      scene.remove(clue);
+
+      clue.traverse(object => {
+        if (object.geometry) {
+          object.geometry.dispose();
+        }
+
+        if (object.material) {
+          const materials = Array.isArray(object.material)
+            ? object.material
+            : [object.material];
+
+          for (const material of materials) {
+            if (material.map) material.map.dispose();
+            material.dispose();
+          }
+        }
+      });
+    }
+
+    clueObjects.length = 0;
+  };
+
+  return clueObjects;
 }
