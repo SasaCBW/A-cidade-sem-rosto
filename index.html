@@ -5,9 +5,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#080b10">
+
     <title>A Cidade Sem Rosto</title>
+
     <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="phase2.css">
 </head>
+
 <body>
 
     <div id="loading-screen">
@@ -42,6 +46,7 @@
     <div id="game-container"></div>
 
     <div id="game-ui" class="hidden">
+
         <div class="top-info">
             <div class="location">
                 <span class="status-dot"></span>
@@ -52,19 +57,42 @@
 
         <div class="mission-panel">
             <p>OBJETIVO ATUAL</p>
-            <h3>Descubra onde você está.</h3>
-            <span>Explore as ruas e procure pistas.</span>
+            <h3 id="mission-title">Descubra onde você está.</h3>
+            <span id="mission-description">
+                Explore as ruas e procure pistas.
+            </span>
         </div>
 
         <div class="crosshair">+</div>
 
         <div id="interaction-message"></div>
 
+        <div class="inventory-controls">
+            <button id="flashlight-button">LANTERNA [F]</button>
+            <button id="inventory-button">INVENTÁRIO [TAB]</button>
+        </div>
+
+        <div id="inventory-panel">
+            <div class="inventory-header">
+                <h2>OBJETOS ENCONTRADOS</h2>
+                <span id="inventory-count">0</span>
+            </div>
+
+            <div id="inventory-list"></div>
+
+            <p class="inventory-footer">
+                INVESTIGUE CADA PISTA CUIDADOSAMENTE.
+            </p>
+        </div>
+
         <div class="bottom-info">
             <span>W A S D — MOVIMENTAR</span>
             <span>MOUSE — OLHAR</span>
+            <span>F — LANTERNA</span>
+            <span>E — INVESTIGAR</span>
             <span>ESC — PAUSAR</span>
         </div>
+
     </div>
 
     <div id="pause-menu" class="hidden">
@@ -79,10 +107,12 @@
     <div id="about-modal" class="hidden">
         <div class="about-content">
             <h2>A CIDADE SEM ROSTO</h2>
+
             <p>
                 Uma cidade vazia. Fotografias sem rostos.
                 Um mistério que ninguém deveria descobrir.
             </p>
+
             <button id="close-about">FECHAR</button>
         </div>
     </div>
