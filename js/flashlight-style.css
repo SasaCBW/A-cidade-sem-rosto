@@ -1,0 +1,39 @@
+
+#flashlightBtn {
+  position: fixed;
+  right: 24px;
+  bottom: 28px;
+  z-index: 1000;
+  padding: 13px 19px;
+  border: 1px solid rgba(160, 190, 220, 0.35);
+  border-radius: 8px;
+  background: rgba(12, 18, 27, 0.92);
+  color: #dce8f5;
+  font-family: Arial, sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: 0.25s ease;
+}
+
+#flashlightBtn:hover {
+  background: rgba(35, 49, 67, 0.98);
+  border-color: #a9c9ed;
+  transform: translateY(-2px);
+}
+
+#flashlightBtn.flashlight-on {
+  color: #fff2bd;
+  border-color: #e7c66d;
+  box-shadow: 0 0 15px rgba(231, 198, 109, 0.25);
+}
+
+@media (max-width: 600px) {
+  #flashlightBtn {
+    right: 12px;
+    bottom: 15px;
+    padding: 11px 13px;
+    font-size: 10px;
+  }
+}
