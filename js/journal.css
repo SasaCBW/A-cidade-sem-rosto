@@ -1,0 +1,54 @@
+
+#journalPanel {
+  position: fixed;
+  inset: 7% 8%;
+  z-index: 1200;
+  display: none;
+  overflow-y: auto;
+  padding: 30px;
+  color: #dce5ef;
+  background: rgba(9, 14, 22, 0.97);
+  border: 1px solid rgba(160, 185, 215, 0.3);
+  border-radius: 12px;
+  font-family: Arial, sans-serif;
+}
+
+#journalPanel.open {
+  display: block;
+}
+
+#journalPanel h2 {
+  color: #d5bd85;
+  letter-spacing: 3px;
+}
+
+#journalEntries article {
+  margin: 18px 0;
+  padding: 17px;
+  background: rgba(255, 255, 255, 0.045);
+  border-left: 3px solid #b99b61;
+  border-radius: 5px;
+}
+
+#journalEntries h3 {
+  color: #e5d2a8;
+}
+
+#journalEntries p {
+  line-height: 1.6;
+  color: #c2cbd5;
+}
+
+#journalEntries small {
+  color: #8996a6;
+}
+
+#closeJournal {
+  float: right;
+  padding: 9px 15px;
+  color: white;
+  background: #39495d;
+  border: 0;
+  border-radius: 5px;
+  cursor: pointer;
+}
