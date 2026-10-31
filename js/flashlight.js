@@ -2,24 +2,16 @@ import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.m
 
 export function createFlashlight(camera, button) {
 
-  // ================================================
-  // CONFIGURAÇÕES
-  // ================================================
-
   let isOn = false;
 
-  const flashlightGroup = new THREE.Group();
-
-  camera.add(flashlightGroup);
-
-  // ================================================
+  // =========================================
   // LUZ PRINCIPAL
-  // ================================================
+  // =========================================
 
   const spotlight = new THREE.SpotLight(
     0xddeeff,
     0,
-    35,
+    32,
     Math.PI / 7,
     0.45,
     1.2
@@ -32,7 +24,7 @@ export function createFlashlight(camera, button) {
   spotlight.shadow.mapSize.width = 1024;
   spotlight.shadow.mapSize.height = 1024;
 
-  spotlight.shadow.camera.near = 0.1;
+  spotlight.shadow.camera.near = 0.5;
   spotlight.shadow.camera.far = 35;
 
   const target = new THREE.Object3D();
@@ -44,9 +36,9 @@ export function createFlashlight(camera, button) {
 
   spotlight.target = target;
 
-  // ================================================
-  // LUZ PRÓXIMA
-  // ================================================
+  // =========================================
+  // ILUMINAÇÃO PRÓXIMA
+  // =========================================
 
   const nearbyLight = new THREE.PointLight(
     0xc8dcff,
@@ -55,53 +47,91 @@ export function createFlashlight(camera, button) {
     2
   );
 
-  nearbyLight.position.set(0, 0, -0.3);
+  nearbyLight.position.set(
+    0,
+    -0.15,
+    -0.3
+  );
 
   camera.add(nearbyLight);
 
-  // ================================================
-  // VISUAL DO BOTÃO
-  // ================================================
+  // =========================================
+  // ATUALIZAR BOTÃO
+  // =========================================
 
   function updateButton() {
 
     if (!button) return;
-
-    button.textContent = isOn
-      ? "🔦 Lanterna ligada"
-      : "🔦 Lanterna desligada";
 
     button.classList.toggle(
       "flashlight-on",
       isOn
     );
 
+    button.textContent = isOn
+      ? "🔦 Lanterna ligada"
+      : "🔦 Lanterna desligada";
+
     button.setAttribute(
       "aria-pressed",
       String(isOn)
     );
+
   }
 
-  // ================================================
-  // LIGAR E DESLIGAR
-  // ================================================
+  // =========================================
+  // LIGAR
+  // =========================================
 
-  function toggle() {
+  function turnOn() {
 
-    isOn = !isOn;
+    if (isOn) return;
 
-    spotlight.intensity = isOn ? 5 : 0;
+    isOn = true;
 
-    nearbyLight.intensity = isOn ? 1.2 : 0;
+    spotlight.intensity = 5;
+
+    nearbyLight.intensity = 1.2;
 
     updateButton();
 
-    return isOn;
   }
 
-  // ================================================
+  // =========================================
+  // DESLIGAR
+  // =========================================
+
+  function turnOff() {
+
+    if (!isOn) return;
+
+    isOn = false;
+
+    spotlight.intensity = 0;
+
+    nearbyLight.intensity = 0;
+
+    updateButton();
+
+  }
+
+  // =========================================
+  // ALTERNAR
+  // =========================================
+
+  function toggle() {
+
+    if (isOn) {
+      turnOff();
+    } else {
+      turnOn();
+    }
+
+  }
+
+  // =========================================
   // TECLADO
-  // ================================================
+  // =========================================
 
   function handleKey(event) {
 
@@ -117,48 +147,48 @@ export function createFlashlight(camera, button) {
     }
 
     toggle();
+
   }
 
-  // ================================================
+  // =========================================
   // BOTÃO
-  // ================================================
+  // =========================================
 
-  button?.addEventListener("click", toggle);
+  function handleButtonClick() {
+    toggle();
+  }
+
+  button?.addEventListener(
+    "click",
+    handleButtonClick
+  );
 
   window.addEventListener(
     "keydown",
     handleKey
   );
 
-  // ================================================
-  // ESTADO INICIAL
-  // ================================================
-
   updateButton();
 
-  // ================================================
-  // RETORNO DO SISTEMA
-  // ================================================
+  // =========================================
+  // RETORNO
+  // =========================================
 
   return {
 
     toggle,
 
+    turnOn,
+
+    turnOff,
+
     isOn: () => isOn,
-
-    turnOn() {
-      if (!isOn) toggle();
-    },
-
-    turnOff() {
-      if (isOn) toggle();
-    },
 
     destroy() {
 
       button?.removeEventListener(
         "click",
-        toggle
+        handleButtonClick
       );
 
       window.removeEventListener(
@@ -170,7 +200,8 @@ export function createFlashlight(camera, button) {
       camera.remove(target);
       camera.remove(nearbyLight);
 
-      spotlight.dispose?.();
+      spotlight.target = new THREE.Object3D();
+
     }
 
   };
