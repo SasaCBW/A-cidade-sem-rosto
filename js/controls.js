@@ -1,8 +1,16 @@
 
 import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js";
 
+/* ==========================================
+   A CIDADE SEM ROSTO
+   CONTROLES DO PERSONAGEM
+========================================== */
+
 export function createControls(camera, domElement, player = null) {
-    const playerObject = player || camera;
+    const playerAPI = player?.group ? player : null;
+    const playerObject = playerAPI
+        ? playerAPI.group
+        : player || camera;
 
     const keys = {
         forward: false,
@@ -20,68 +28,88 @@ export function createControls(camera, domElement, player = null) {
         maxPitch: Math.PI / 2 - 0.08
     };
 
-    const bounds = {
-        minX: -85,
-        maxX: 85,
-        minZ: -165,
-        maxZ: 65
-    };
-
-    let enabled = true;
-    let locked = false;
+    let movementEnabled = true;
+    let pointerLocked = false;
     let pitch = 0;
 
     const direction = new THREE.Vector3();
     const forward = new THREE.Vector3();
     const right = new THREE.Vector3();
 
-    function setKey(code, pressed) {
-        switch (code) {
+    /* ======================================
+       TECLADO
+    ====================================== */
+
+    function onKeyDown(event) {
+        switch (event.code) {
             case "KeyW":
             case "ArrowUp":
-                keys.forward = pressed;
+                keys.forward = true;
                 break;
 
             case "KeyS":
             case "ArrowDown":
-                keys.backward = pressed;
+                keys.backward = true;
                 break;
 
             case "KeyA":
             case "ArrowLeft":
-                keys.left = pressed;
+                keys.left = true;
                 break;
 
             case "KeyD":
             case "ArrowRight":
-                keys.right = pressed;
+                keys.right = true;
                 break;
 
             case "ShiftLeft":
             case "ShiftRight":
-                keys.sprint = pressed;
+                keys.sprint = true;
                 break;
         }
     }
 
-    function onKeyDown(event) {
-        setKey(event.code, true);
+    function onKeyUp(event) {
+        switch (event.code) {
+            case "KeyW":
+            case "ArrowUp":
+                keys.forward = false;
+                break;
+
+            case "KeyS":
+            case "ArrowDown":
+                keys.backward = false;
+                break;
+
+            case "KeyA":
+            case "ArrowLeft":
+                keys.left = false;
+                break;
+
+            case "KeyD":
+            case "ArrowRight":
+                keys.right = false;
+                break;
+
+            case "ShiftLeft":
+            case "ShiftRight":
+                keys.sprint = false;
+                break;
+        }
     }
 
-    function onKeyUp(event) {
-        setKey(event.code, false);
-    }
+    /* ======================================
+       MOVIMENTO DO MOUSE
+    ====================================== */
 
     function onMouseMove(event) {
-        if (!locked || !enabled) return;
-
-        const movementX = event.movementX || 0;
-        const movementY = event.movementY || 0;
+        if (!pointerLocked || !movementEnabled) return;
 
         playerObject.rotation.y -=
-            movementX * settings.mouseSensitivity;
+            event.movementX * settings.mouseSensitivity;
 
-        pitch -= movementY * settings.mouseSensitivity;
+        pitch -=
+            event.movementY * settings.mouseSensitivity;
 
         pitch = THREE.MathUtils.clamp(
             pitch,
@@ -92,28 +120,13 @@ export function createControls(camera, domElement, player = null) {
         camera.rotation.x = pitch;
     }
 
-    function onPointerLockChange() {
-        locked = document.pointerLockElement === domElement;
-
-        if (!locked) {
-            clearKeys();
-        }
-    }
-
-    function onPointerLockError() {
-        locked = false;
-        clearKeys();
-    }
+    /* ======================================
+       POINTER LOCK
+    ====================================== */
 
     function lock() {
-        if (!domElement || !domElement.requestPointerLock) return;
-
-        const result = domElement.requestPointerLock();
-
-        if (result && typeof result.catch === "function") {
-            result.catch(() => {
-                locked = false;
-            });
+        if (domElement.requestPointerLock) {
+            domElement.requestPointerLock();
         }
     }
 
@@ -121,30 +134,29 @@ export function createControls(camera, domElement, player = null) {
         if (document.pointerLockElement === domElement) {
             document.exitPointerLock();
         }
-
-        locked = false;
-        clearKeys();
     }
 
-    function clearKeys() {
-        Object.keys(keys).forEach((key) => {
-            keys[key] = false;
-        });
+    function onPointerLockChange() {
+        pointerLocked =
+            document.pointerLockElement === domElement;
+
+        if (!pointerLocked) {
+            clearKeys();
+        }
     }
+
+    /* ======================================
+       ATUALIZAÇÃO DO MOVIMENTO
+    ====================================== */
 
     function update(delta) {
-        if (!enabled || !Number.isFinite(delta)) return;
-
-        const movingForward = keys.forward || keys.backward;
-        const movingSideways = keys.left || keys.right;
-
-        if (!movingForward && !movingSideways) return;
-
-        const speed = keys.sprint
-            ? settings.sprintSpeed
-            : settings.walkSpeed;
-
-        const movement = speed * Math.min(delta, 0.05);
+        if (!movementEnabled) {
+            return {
+                moving: false,
+                isSprinting: false,
+                stamina: playerAPI?.getStamina?.() ?? 100
+            };
+        }
 
         forward.set(0, 0, -1);
         forward.applyQuaternion(playerObject.quaternion);
@@ -163,62 +175,119 @@ export function createControls(camera, domElement, player = null) {
         if (keys.right) direction.add(right);
         if (keys.left) direction.sub(right);
 
-        if (direction.lengthSq() === 0) return;
+        const moving = direction.lengthSq() > 0;
 
-        direction.normalize().multiplyScalar(movement);
+        if (moving) {
+            direction.normalize();
+        }
 
-        playerObject.position.x += direction.x;
-        playerObject.position.z += direction.z;
+        const sprintRequested = keys.sprint && moving;
+
+        let stamina = playerAPI?.getStamina?.() ?? 100;
+        let isSprinting = sprintRequested && stamina > 0;
+
+        if (playerAPI?.update) {
+            const status = playerAPI.update(
+                delta,
+                sprintRequested
+            );
+
+            if (status && typeof status === "object") {
+                isSprinting = Boolean(status.isSprinting);
+                stamina = status.stamina ?? stamina;
+            } else {
+                stamina = playerAPI.getStamina?.() ?? stamina;
+                isSprinting = sprintRequested && stamina > 0;
+            }
+        }
+
+        const speed = isSprinting
+            ? settings.sprintSpeed
+            : settings.walkSpeed;
+
+        if (moving) {
+            playerObject.position.addScaledVector(
+                direction,
+                speed * delta
+            );
+        }
+
+        /* Limites da cidade */
 
         playerObject.position.x = THREE.MathUtils.clamp(
             playerObject.position.x,
-            bounds.minX,
-            bounds.maxX
+            -85,
+            85
         );
 
         playerObject.position.z = THREE.MathUtils.clamp(
             playerObject.position.z,
-            bounds.minZ,
-            bounds.maxZ
+            -165,
+            65
         );
+
+        return {
+            moving,
+            isSprinting,
+            stamina
+        };
     }
 
-    function setMovementEnabled(value) {
-        enabled = Boolean(value);
+    /* ======================================
+       CONTROLE DE TECLAS
+    ====================================== */
 
-        if (!enabled) {
+    function clearKeys() {
+        Object.keys(keys).forEach((key) => {
+            keys[key] = false;
+        });
+    }
+
+    function setMovementEnabled(enabled) {
+        movementEnabled = Boolean(enabled);
+
+        if (!movementEnabled) {
             clearKeys();
         }
     }
 
-    function setBounds(newBounds = {}) {
-        Object.assign(bounds, newBounds);
+    function setBounds(minX, maxX, minZ, maxZ) {
+        settings.minX = minX;
+        settings.maxX = maxX;
+        settings.minZ = minZ;
+        settings.maxZ = maxZ;
     }
 
     function isLocked() {
-        return locked;
+        return pointerLocked;
+    }
+
+    function isMoving() {
+        return (
+            keys.forward ||
+            keys.backward ||
+            keys.left ||
+            keys.right
+        );
     }
 
     function destroy() {
-        unlock();
-
         document.removeEventListener("keydown", onKeyDown);
         document.removeEventListener("keyup", onKeyUp);
-        document.removeEventListener(
-            "mousemove",
-            onMouseMove
-        );
-
+        document.removeEventListener("mousemove", onMouseMove);
         document.removeEventListener(
             "pointerlockchange",
             onPointerLockChange
         );
 
-        document.removeEventListener(
-            "pointerlockerror",
-            onPointerLockError
-        );
+        domElement.removeEventListener("click", lock);
+
+        clearKeys();
     }
+
+    /* ======================================
+       EVENTOS
+    ====================================== */
 
     document.addEventListener("keydown", onKeyDown);
     document.addEventListener("keyup", onKeyUp);
@@ -229,19 +298,21 @@ export function createControls(camera, domElement, player = null) {
         onPointerLockChange
     );
 
-    document.addEventListener(
-        "pointerlockerror",
-        onPointerLockError
-    );
+    domElement.addEventListener("click", lock);
+
+    /* ======================================
+       RETORNO
+    ====================================== */
 
     return {
+        update,
         lock,
         unlock,
-        update,
         clearKeys,
         setMovementEnabled,
         setBounds,
         isLocked,
+        isMoving,
         destroy
     };
 }
