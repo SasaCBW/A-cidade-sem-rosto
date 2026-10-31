@@ -1,207 +1,413 @@
 
-import { Inventory } from './inventory.js';
+import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js";
 
-export function createInteractions(THREE, scene, camera) {
-    const inventory = new Inventory();
+/* ==========================================
+   A CIDADE SEM ROSTO
+   SISTEMA DE INTERAÇÕES
+========================================== */
+
+export function createInteractions(scene, camera) {
     const raycaster = new THREE.Raycaster();
 
-    const objects = [];
+    raycaster.far = 3.5;
+
+    const center = new THREE.Vector2(0, 0);
+
     const collected = new Set();
+    const interactableObjects = [];
 
-    const message = document.getElementById('interaction-message');
-    const inventoryList = document.getElementById('inventory-list');
-    const inventoryCount = document.getElementById('inventory-count');
+    let currentTarget = null;
+    let enabled = true;
 
-    let currentObject = null;
-    let messageTimer = null;
+    /* ======================================
+       ELEMENTOS DA INTERFACE
+    ====================================== */
+
+    const prompt = document.querySelector("#interactionPrompt");
+    const promptText = document.querySelector("#interactionText");
+
+    function showPrompt(message = "Pressione E para investigar") {
+        if (!prompt) return;
+
+        if (promptText) {
+            promptText.textContent = message;
+        }
+
+        prompt.classList.remove("hidden");
+        prompt.classList.add("visible");
+    }
+
+    function hidePrompt() {
+        if (!prompt) return;
+
+        prompt.classList.remove("visible");
+        prompt.classList.add("hidden");
+    }
+
+    /* ======================================
+       MATERIAIS DAS PISTAS
+    ====================================== */
+
+    const materials = {
+        paper: new THREE.MeshStandardMaterial({
+            color: 0xd8cdb2,
+            roughness: 0.95
+        }),
+
+        photo: new THREE.MeshStandardMaterial({
+            color: 0x4c5360,
+            roughness: 0.85
+        }),
+
+        dark: new THREE.MeshStandardMaterial({
+            color: 0x252b35,
+            roughness: 0.9
+        })
+    };
+
+    /* ======================================
+       CRIAR UMA PISTA
+    ====================================== */
+
+    function createClue(data) {
+        const group = new THREE.Group();
+
+        let geometry;
+        let material;
+
+        if (data.type === "photo") {
+            geometry = new THREE.BoxGeometry(
+                0.42,
+                0.32,
+                0.025
+            );
+
+            material = materials.photo;
+        } else if (data.type === "document") {
+            geometry = new THREE.BoxGeometry(
+                0.34,
+                0.44,
+                0.018
+            );
+
+            material = materials.paper;
+        } else {
+            geometry = new THREE.BoxGeometry(
+                0.28,
+                0.12,
+                0.035
+            );
+
+            material = materials.dark;
+        }
+
+        const object = new THREE.Mesh(
+            geometry,
+            material
+        );
+
+        object.castShadow = true;
+        object.receiveShadow = true;
+
+        group.add(object);
+
+        const glow = new THREE.PointLight(
+            0x9ab8df,
+            0.18,
+            1.8
+        );
+
+        glow.position.set(0, 0.2, 0.3);
+        group.add(glow);
+
+        group.position.set(
+            data.position[0],
+            data.position[1],
+            data.position[2]
+        );
+
+        group.rotation.y = data.rotation || 0;
+
+        group.userData.clue = data;
+        group.userData.clueId = data.id;
+
+        group.traverse((child) => {
+            child.userData.clueId = data.id;
+        });
+
+        scene.add(group);
+
+        interactableObjects.push(group);
+
+        return group;
+    }
+
+    /* ======================================
+       PISTAS DO PRIMEIRO CAPÍTULO
+    ====================================== */
 
     const clues = [
         {
-            id: 'photo_01',
-            name: 'Fotografia sem rosto',
-            description: 'Uma fotografia antiga. Os rostos das pessoas parecem ter desaparecido.',
-            type: 'photo',
+            id: "photo_01",
+            title: "Fotografia antiga",
+            description:
+                "Uma fotografia encontrada na rua. Há várias pessoas na imagem, mas nenhum rosto pode ser reconhecido.",
+            category: "Fotografia",
+            type: "photo",
             position: [4.5, 0.9, -12]
         },
         {
-            id: 'document_01',
-            name: 'Documento abandonado',
-            description: 'O documento registra o desaparecimento de moradores do Distrito Central.',
-            type: 'document',
+            id: "document_01",
+            title: "Documento rasgado",
+            description:
+                "Um documento parcialmente destruído. O texto menciona desaparecimentos registrados na cidade.",
+            category: "Documento",
+            type: "document",
             position: [-4.5, 0.9, -28]
         },
         {
-            id: 'photo_02',
-            name: 'Retrato misterioso',
-            description: 'Uma família aparece na fotografia. Nenhum rosto pode ser identificado.',
-            type: 'photo',
+            id: "photo_02",
+            title: "Retrato sem rosto",
+            description:
+                "Uma fotografia antiga. A figura principal parece ter sido apagada da imagem.",
+            category: "Fotografia",
+            type: "photo",
             position: [4.5, 0.9, -48]
         },
         {
-            id: 'note_01',
-            name: 'Bilhete encontrado',
-            description: 'A cidade não está vazia. Alguém está observando você.',
-            type: 'document',
+            id: "note_01",
+            title: "Bilhete misterioso",
+            description:
+                "O bilhete contém uma frase: 'Não confie nas fotografias desta cidade'.",
+            category: "Mensagem",
+            type: "note",
             position: [-4.5, 0.9, -70]
         }
     ];
 
-    const photoMaterial = new THREE.MeshStandardMaterial({
-        color: 0xc2bba5,
-        emissive: 0x383023,
-        roughness: 0.8
+    /* ======================================
+       CONSTRUIR OBJETOS
+    ====================================== */
+
+    clues.forEach((clue) => {
+        createClue(clue);
     });
 
-    const documentMaterial = new THREE.MeshStandardMaterial({
-        color: 0xc6c0a9,
-        emissive: 0x302d20,
-        roughness: 0.9
-    });
+    /* ======================================
+       LOCALIZAR OBJETO À FRENTE
+    ====================================== */
 
-    function createClue(data) {
-        const geometry = new THREE.BoxGeometry(0.7, 0.9, 0.06);
+    function getTarget() {
+        if (!enabled) return null;
 
-        const material = data.type === 'photo'
-            ? photoMaterial.clone()
-            : documentMaterial.clone();
+        raycaster.setFromCamera(center, camera);
 
-        const object = new THREE.Mesh(geometry, material);
+        const intersections =
+            raycaster.intersectObjects(
+                interactableObjects,
+                true
+            );
 
-        object.position.set(...data.position);
-        object.rotation.y = Math.PI * 0.08;
-        object.userData.clue = data;
+        for (const intersection of intersections) {
+            let object = intersection.object;
 
-        const glow = new THREE.PointLight(
-            0x9bb8ca,
-            0.45,
-            3
-        );
+            while (object) {
+                if (object.userData?.clue) {
+                    const clue = object.userData.clue;
 
-        glow.position.set(0, 0.5, 0.5);
-        object.add(glow);
+                    if (!collected.has(clue.id)) {
+                        return object;
+                    }
+                }
 
-        scene.add(object);
-        objects.push(object);
-    }
-
-    clues.forEach(createClue);
-
-    function showMessage(text, duration = 3500) {
-        message.textContent = text;
-
-        clearTimeout(messageTimer);
-
-        messageTimer = setTimeout(() => {
-            message.textContent = '';
-        }, duration);
-    }
-
-    function updateInventory() {
-        inventoryList.innerHTML = '';
-
-        const items = inventory.getItems();
-
-        inventoryCount.textContent = items.length;
-
-        items.forEach(item => {
-            const element = document.createElement('div');
-
-            element.className = 'inventory-item';
-
-            const icon = item.id.startsWith('photo')
-                ? '▧'
-                : '▤';
-
-            element.innerHTML = `
-                <span class="item-icon">${icon}</span>
-                <span>${item.name}</span>
-            `;
-
-            inventoryList.appendChild(element);
-        });
-    }
-
-    function update() {
-        raycaster.setFromCamera(
-            new THREE.Vector2(0, 0),
-            camera
-        );
-
-        const intersections = raycaster.intersectObjects(
-            objects,
-            false
-        );
-
-        currentObject = null;
-
-        if (intersections.length > 0) {
-            const target = intersections[0].object;
-
-            const distance = intersections[0].distance;
-
-            if (distance < 3.5) {
-                currentObject = target;
-
-                message.textContent =
-                    `PRESSIONE E PARA INVESTIGAR: ${target.userData.clue.name}`;
-
-                return;
+                object = object.parent;
             }
         }
 
-        message.textContent = '';
+        return null;
     }
 
-    function interact() {
-        if (!currentObject) return;
+    /* ======================================
+       ATUALIZAR PROMPT
+    ====================================== */
 
-        const data = currentObject.userData.clue;
-
-        if (collected.has(data.id)) return;
-
-        const success = inventory.addItem(data);
-
-        if (!success) return;
-
-        collected.add(data.id);
-
-        scene.remove(currentObject);
-
-        const index = objects.indexOf(currentObject);
-
-        if (index !== -1) {
-            objects.splice(index, 1);
+    function updatePrompt() {
+        if (!enabled) {
+            hidePrompt();
+            return;
         }
 
-        currentObject = null;
+        currentTarget = getTarget();
 
-        updateInventory();
+        if (currentTarget) {
+            const clue = currentTarget.userData.clue;
 
-        showMessage(
-            `PISTA DESCOBERTA: ${data.name}`,
-            4500
+            showPrompt(
+                `Pressione E para investigar: ${clue.title}`
+            );
+        } else {
+            hidePrompt();
+        }
+    }
+
+    /* ======================================
+       INTERAGIR COM OBJETO
+    ====================================== */
+
+    function interact() {
+        if (!enabled) return false;
+
+        currentTarget = getTarget();
+
+        if (!currentTarget) return false;
+
+        const clue = currentTarget.userData.clue;
+
+        if (!clue || collected.has(clue.id)) {
+            return false;
+        }
+
+        collected.add(clue.id);
+
+        currentTarget.visible = false;
+
+        const detail = {
+            id: clue.id,
+            title: clue.title,
+            name: clue.title,
+            description: clue.description,
+            category: clue.category,
+            type: clue.type,
+            collectedAt: new Date().toISOString()
+        };
+
+        window.dispatchEvent(
+            new CustomEvent("clueCollected", {
+                detail
+            })
         );
 
-        const event = new CustomEvent('clueCollected', {
-            detail: data
+        window.dispatchEvent(
+            new CustomEvent("inventoryItemAdded", {
+                detail: {
+                    id: detail.id,
+                    name: detail.title,
+                    description: detail.description,
+                    category: detail.category
+                }
+            })
+        );
+
+        window.dispatchEvent(
+            new CustomEvent("journalEntryAdded", {
+                detail: {
+                    title: detail.title,
+                    description: detail.description,
+                    category: detail.category
+                }
+            })
+        );
+
+        hidePrompt();
+
+        return true;
+    }
+
+    /* ======================================
+       RESTAURAR PISTAS
+    ====================================== */
+
+    function restoreCollected(savedIds = []) {
+        if (!Array.isArray(savedIds)) return;
+
+        savedIds.forEach((id) => {
+            collected.add(id);
+
+            const object = interactableObjects.find(
+                (entry) => entry.userData.clueId === id
+            );
+
+            if (object) {
+                object.visible = false;
+            }
+        });
+    }
+
+    /* ======================================
+       CONSULTAR PROGRESSO
+    ====================================== */
+
+    function getCollected() {
+        return [...collected];
+    }
+
+    function getAllClues() {
+        return clues.map((clue) => ({ ...clue }));
+    }
+
+    function getProgress() {
+        return {
+            collected: collected.size,
+            total: clues.length,
+            percentage:
+                Math.round(
+                    (collected.size / clues.length) * 100
+                )
+        };
+    }
+
+    /* ======================================
+       CONTROLE DO SISTEMA
+    ====================================== */
+
+    function setEnabled(value) {
+        enabled = Boolean(value);
+
+        if (!enabled) {
+            currentTarget = null;
+            hidePrompt();
+        }
+    }
+
+    /* ======================================
+       DESTRUIR SISTEMA
+    ====================================== */
+
+    function destroy() {
+        hidePrompt();
+
+        interactableObjects.forEach((group) => {
+            scene.remove(group);
+
+            group.traverse((child) => {
+                if (child.geometry) {
+                    child.geometry.dispose();
+                }
+            });
         });
 
-        window.dispatchEvent(event);
+        interactableObjects.length = 0;
+
+        Object.values(materials).forEach((material) => {
+            material.dispose();
+        });
+
+        collected.clear();
     }
 
-    function getInventory() {
-        return inventory.getItems();
-    }
-
-    function getCollectedCount() {
-        return collected.size;
-    }
+    /* ======================================
+       RETORNO
+    ====================================== */
 
     return {
-        update,
         interact,
-        getInventory,
-        getCollectedCount,
-        showMessage
+        updatePrompt,
+        getTarget,
+        getCollected,
+        getAllClues,
+        getProgress,
+        restoreCollected,
+        setEnabled,
+        destroy
     };
 }
