@@ -2,28 +2,43 @@ import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.m
 
 export function createLighting(scene) {
 
-  // ================================================
+  // =========================================
+  // CONFIGURAÇÕES DO AMBIENTE
+  // =========================================
+
+  scene.background = new THREE.Color(0x080d14);
+
+  scene.fog = new THREE.FogExp2(
+    0x101923,
+    0.012
+  );
+
+  // =========================================
   // LUZ AMBIENTE
-  // ================================================
+  // =========================================
 
   const ambient = new THREE.HemisphereLight(
-    0x9aadc9,
-    0x171923,
-    0.8
+    0x71839a,
+    0x171a1d,
+    0.45
   );
 
   scene.add(ambient);
 
-  // ================================================
-  // LUZ DA LUA
-  // ================================================
+  // =========================================
+  // LUAR
+  // =========================================
 
   const moon = new THREE.DirectionalLight(
-    0x9bb8e8,
-    1.8
+    0x9aadc9,
+    1.1
   );
 
-  moon.position.set(-35, 55, 25);
+  moon.position.set(
+    -35,
+    55,
+    -45
+  );
 
   moon.castShadow = true;
 
@@ -35,66 +50,50 @@ export function createLighting(scene) {
   moon.shadow.camera.top = 100;
   moon.shadow.camera.bottom = -100;
 
-  moon.shadow.camera.near = 0.5;
-  moon.shadow.camera.far = 150;
+  moon.shadow.camera.near = 1;
+  moon.shadow.camera.far = 180;
 
   moon.shadow.bias = -0.0002;
 
   scene.add(moon);
 
-  // ================================================
+  // =========================================
   // LUZ SECUNDÁRIA
-  // ================================================
+  // =========================================
 
   const secondaryLight = new THREE.DirectionalLight(
-    0x344b70,
-    0.45
+    0x53677d,
+    0.25
   );
 
   secondaryLight.position.set(
-    35,
+    40,
     20,
-    -45
+    30
   );
 
   scene.add(secondaryLight);
 
-  // ================================================
-  // NEBLINA NOTURNA
-  // ================================================
-
-  scene.fog = new THREE.FogExp2(
-    0x101722,
-    0.012
-  );
-
-  // ================================================
-  // CONFIGURAÇÕES DO CÉU
-  // ================================================
-
-  scene.background = new THREE.Color(
-    0x101722
-  );
-
-  // ================================================
-  // LUZES DECORATIVAS DISTANTES
-  // ================================================
+  // =========================================
+  // LUZES DISTANTES
+  // =========================================
 
   const distantLights = [];
 
   const lightPositions = [
-    [-18, 5, -25],
-    [22, 5, -45],
-    [-30, 5, -70],
-    [35, 5, -90]
+    [-15, 3, -18],
+    [15, 3, -42],
+    [-12, 3, -68],
+    [13, 3, -95],
+    [-14, 3, -120]
   ];
 
   lightPositions.forEach(position => {
 
     const light = new THREE.PointLight(
-      0x657fa8,
-      0.7,
-      28,
+      0x7895b4,
+      0.55,
+      18,
       2
     );
 
@@ -110,96 +109,171 @@ export function createLighting(scene) {
 
   });
 
-  // ================================================
-  // LUZES DE POSTES
-  // ================================================
+  // =========================================
+  // LUZES DE ALERTA
+  // =========================================
 
-  const streetLights = [];
+  const warningLights = [];
 
-  for (let i = 0; i < 8; i++) {
+  const warningPositions = [
+    [-18, 2.5, -32],
+    [18, 2.5, -75],
+    [-18, 2.5, -105]
+  ];
 
-    const x = i % 2 === 0 ? -9 : 9;
-    const z = -12 - Math.floor(i / 2) * 25;
+  warningPositions.forEach(position => {
 
     const light = new THREE.PointLight(
-      0xffd69a,
-      1.4,
-      17,
+      0x8b3434,
+      0.5,
+      10,
       2
     );
 
     light.position.set(
-      x,
-      5.5,
-      z
+      position[0],
+      position[1],
+      position[2]
     );
-
-    light.castShadow = false;
 
     scene.add(light);
 
-    streetLights.push(light);
+    warningLights.push(light);
+
+  });
+
+  // =========================================
+  // ESTRELAS DISTANTES
+  // =========================================
+
+  const starGeometry = new THREE.BufferGeometry();
+
+  const starPositions = [];
+
+  for (let i = 0; i < 350; i++) {
+
+    const x = (Math.random() - 0.5) * 250;
+
+    const y = 35 + Math.random() * 65;
+
+    const z = -40 - Math.random() * 180;
+
+    starPositions.push(x, y, z);
 
   }
 
-  // ================================================
-  // RETORNO DO SISTEMA
-  // ================================================
+  starGeometry.setAttribute(
+    "position",
+    new THREE.Float32BufferAttribute(
+      starPositions,
+      3
+    )
+  );
+
+  const starMaterial = new THREE.PointsMaterial({
+    color: 0xc4d1df,
+    size: 0.12,
+    transparent: true,
+    opacity: 0.65,
+    sizeAttenuation: true
+  });
+
+  const stars = new THREE.Points(
+    starGeometry,
+    starMaterial
+  );
+
+  scene.add(stars);
+
+  // =========================================
+  // ATUALIZAÇÃO DA ILUMINAÇÃO
+  // =========================================
+
+  let elapsed = 0;
+
+  function update(delta) {
+
+    elapsed += Math.min(delta, 0.05);
+
+    // Pequena oscilação das luzes distantes.
+    distantLights.forEach((light, index) => {
+
+      light.intensity =
+        0.48 +
+        Math.sin(elapsed * 1.4 + index) * 0.08;
+
+    });
+
+    // Algumas luzes de alerta piscam suavemente.
+    warningLights.forEach((light, index) => {
+
+      light.intensity =
+        0.35 +
+        Math.max(
+          0,
+          Math.sin(elapsed * 2.1 + index * 2)
+        ) * 0.5;
+
+    });
+
+  }
+
+  // =========================================
+  // CONTROLE DA INTENSIDADE NOTURNA
+  // =========================================
+
+  function setNightIntensity(value) {
+
+    const intensity = THREE.MathUtils.clamp(
+      value,
+      0,
+      2
+    );
+
+    ambient.intensity = intensity * 0.45;
+
+    moon.intensity = intensity * 1.1;
+
+    secondaryLight.intensity = intensity * 0.25;
+
+  }
+
+  // =========================================
+  // DESTRUIR ILUMINAÇÃO
+  // =========================================
+
+  function destroy() {
+
+    scene.remove(ambient);
+    scene.remove(moon);
+    scene.remove(secondaryLight);
+    scene.remove(stars);
+
+    distantLights.forEach(light => {
+      scene.remove(light);
+    });
+
+    warningLights.forEach(light => {
+      scene.remove(light);
+    });
+
+    starGeometry.dispose();
+    starMaterial.dispose();
+
+  }
 
   return {
 
     ambient,
-
     moon,
-
     secondaryLight,
 
     distantLights,
+    warningLights,
 
-    streetLights,
-
-    setNightIntensity(value) {
-
-      const intensity = THREE.MathUtils.clamp(
-        value,
-        0,
-        2
-      );
-
-      ambient.intensity = 0.8 * intensity;
-      moon.intensity = 1.8 * intensity;
-
-    },
-
-    update(delta) {
-
-      // Pequena oscilação das luzes distantes.
-      const time = performance.now() * 0.001;
-
-      streetLights.forEach((light, index) => {
-
-        light.intensity =
-          1.4 + Math.sin(time * 2 + index) * 0.08;
-
-      });
-
-    },
-
-    destroy() {
-
-      scene.remove(ambient);
-      scene.remove(moon);
-      scene.remove(secondaryLight);
-
-      distantLights.forEach(light => {
-        scene.remove(light);
-      });
-
-      streetLights.forEach(light => {
-        scene.remove(light);
-      });
-
-    }
+    update,
+    setNightIntensity,
+    destroy
 
   };
 
