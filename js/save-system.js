@@ -1,152 +1,168 @@
+
 const SAVE_KEY = "aCidadeSemRosto_save";
 const SAVE_VERSION = 1;
 
+/* ==========================================
+   PREPARAR DADOS
+========================================== */
+
+function createSaveData(data = {}) {
+    return {
+        version: SAVE_VERSION,
+
+        savedAt: new Date().toISOString(),
+
+        position: {
+            x: Number(data.position?.x ?? 0),
+            y: Number(data.position?.y ?? 0),
+            z: Number(data.position?.z ?? 8)
+        },
+
+        collectedClues: Array.isArray(data.collectedClues)
+            ? [...new Set(data.collectedClues)]
+            : [],
+
+        openedBuildings: Array.isArray(data.openedBuildings)
+            ? [...new Set(data.openedBuildings)]
+            : [],
+
+        journal: Array.isArray(data.journal)
+            ? data.journal
+            : [],
+
+        completedMissions: Array.isArray(data.completedMissions)
+            ? [...new Set(data.completedMissions)]
+            : [],
+
+        currentChapter: Number(data.currentChapter ?? 1),
+
+        playTime: Number(data.playTime ?? 0)
+    };
+}
+
+/* ==========================================
+   SALVAR JOGO
+========================================== */
+
 export function saveGame(data = {}) {
     try {
-        const saveData = {
-            version: SAVE_VERSION,
-            savedAt: new Date().toISOString(),
-
-            player: {
-                position: data.position || {
-                    x: 0,
-                    y: 1.7,
-                    z: 8
-                }
-            },
-
-            collectedClues: Array.isArray(data.collectedClues)
-                ? data.collectedClues
-                : [],
-
-            openedBuildings: Array.isArray(data.openedBuildings)
-                ? data.openedBuildings
-                : [],
-
-            journal: Array.isArray(data.journal)
-                ? data.journal
-                : [],
-
-            completedMissions: Array.isArray(data.completedMissions)
-                ? data.completedMissions
-                : [],
-
-            currentChapter: Number.isInteger(data.currentChapter)
-                ? data.currentChapter
-                : 1,
-
-            playTime: Number.isFinite(data.playTime)
-                ? data.playTime
-                : 0
-        };
+        const saveData = createSaveData(data);
 
         localStorage.setItem(
             SAVE_KEY,
             JSON.stringify(saveData)
         );
 
-        window.dispatchEvent(
-            new CustomEvent("gameSaved", {
-                detail: {
-                    savedAt: saveData.savedAt
-                }
-            })
-        );
+        console.log("Progresso salvo com sucesso.");
 
         return true;
-
     } catch (error) {
         console.error("Erro ao salvar o jogo:", error);
+
         return false;
     }
 }
 
+/* ==========================================
+   CARREGAR JOGO
+========================================== */
+
 export function loadGame() {
     try {
-        const storedData = localStorage.getItem(SAVE_KEY);
+        const rawData = localStorage.getItem(SAVE_KEY);
 
-        if (!storedData) {
-            return null;
-        }
+        if (!rawData) return null;
 
-        const data = JSON.parse(storedData);
+        const data = JSON.parse(rawData);
 
         if (!data || typeof data !== "object") {
             return null;
         }
 
         if (data.version !== SAVE_VERSION) {
-            console.warn("Versão do salvamento incompatível.");
+            console.warn("Versão de salvamento incompatível.");
             return null;
         }
 
-        return {
-            version: data.version,
-            savedAt: data.savedAt || null,
-
-            position: {
-                x: Number(data.player?.position?.x) || 0,
-                y: Number(data.player?.position?.y) || 1.7,
-                z: Number(data.player?.position?.z) || 8
-            },
-
-            collectedClues: Array.isArray(data.collectedClues)
-                ? data.collectedClues
-                : [],
-
-            openedBuildings: Array.isArray(data.openedBuildings)
-                ? data.openedBuildings
-                : [],
-
-            journal: Array.isArray(data.journal)
-                ? data.journal
-                : [],
-
-            completedMissions: Array.isArray(data.completedMissions)
-                ? data.completedMissions
-                : [],
-
-            currentChapter: Number.isInteger(data.currentChapter)
-                ? data.currentChapter
-                : 1,
-
-            playTime: Number.isFinite(data.playTime)
-                ? data.playTime
-                : 0
-        };
-
+        return createSaveData(data);
     } catch (error) {
-        console.error("Erro ao carregar o salvamento:", error);
+        console.error("Erro ao carregar o jogo:", error);
+
         return null;
     }
 }
+
+/* ==========================================
+   VERIFICAR SALVAMENTO
+========================================== */
+
+export function hasSave() {
+    try {
+        return localStorage.getItem(SAVE_KEY) !== null;
+    } catch (error) {
+        console.error("Erro ao verificar salvamento:", error);
+
+        return false;
+    }
+}
+
+/* ==========================================
+   APAGAR SALVAMENTO
+========================================== */
 
 export function deleteSave() {
     try {
         localStorage.removeItem(SAVE_KEY);
 
-        window.dispatchEvent(
-            new CustomEvent("gameSaveDeleted")
-        );
+        console.log("Salvamento apagado.");
 
         return true;
-
     } catch (error) {
-        console.error("Erro ao apagar o salvamento:", error);
+        console.error("Erro ao apagar salvamento:", error);
+
         return false;
     }
 }
 
-export function hasSave() {
-    return localStorage.getItem(SAVE_KEY) !== null;
-}
+/* ==========================================
+   DATA DO SALVAMENTO
+========================================== */
 
 export function getSaveDate() {
     const data = loadGame();
 
-    if (!data || !data.savedAt) {
+    if (!data?.savedAt) return null;
+
+    const date = new Date(data.savedAt);
+
+    if (Number.isNaN(date.getTime())) {
         return null;
     }
 
-    return new Date(data.savedAt);
+    return date;
+}
+
+/* ==========================================
+   TEMPO DE JOGO
+========================================== */
+
+export function formatPlayTime(seconds = 0) {
+    const totalSeconds = Math.max(
+        0,
+        Math.floor(Number(seconds) || 0)
+    );
+
+    const hours = Math.floor(totalSeconds / 3600);
+
+    const minutes = Math.floor(
+        (totalSeconds % 3600) / 60
+    );
+
+    const remainingSeconds = totalSeconds % 60;
+
+    return [
+        String(hours).padStart(2, "0"),
+        String(minutes).padStart(2, "0"),
+        String(remainingSeconds).padStart(2, "0")
+    ].join(":");
 }
