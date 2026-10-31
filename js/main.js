@@ -1,361 +1,451 @@
 
-import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js';
+import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js";
 
-import { createWorld } from './world.js';
-import { createPlayer } from './player.js';
-import { createControls } from './controls.js';
-import { setupInterface } from './interface.js';
-import { setupAudio } from './audio.js';
-import { createFlashlight } from './flashlight.js';
-import { createInteractions } from './interactions.js';
-import { setupInventoryUI } from './inventory-ui.js';
-import { createDoors } from './doors.js';
-import { createInterior } from './interior.js';
-import { createApparition } from './apparition.js';
-import { chapters, completeChapter } from './chapters.js';
+import { createWorld } from "./world.js";
+import { createPlayer } from "./player.js";
+import { createControls } from "./controls.js";
+import { createInterface } from "./interface.js";
+import { createAudio } from "./audio.js";
+import { createFlashlight } from "./flashlight.js";
+import { createInteractions } from "./interactions.js";
+import { setupInventoryUI } from "./inventory-ui.js";
+import { createDoors } from "./doors.js";
+import { createInterior } from "./interior.js";
+import { createApparition } from "./apparition.js";
+import { chapters, completeChapter, showChapter } from "./chapters.js";
+import { createLighting } from "./lighting.js";
+import { createInteractionEffects } from "./interaction-effects.js";
+import { saveGame, loadGame } from "./save-system.js";
+import { createJournal } from "./journal.js";
 
-const container = document.getElementById('game-container');
+// --------------------------------------------------
+// CONFIGURAÇÕES PRINCIPAIS
+// --------------------------------------------------
 
-const loading = document.getElementById('loading-screen');
-const menu = document.getElementById('main-menu');
-const gameUI = document.getElementById('game-ui');
-const pauseMenu = document.getElementById('pause-menu');
+const container = document.getElementById("gameContainer");
+const loadingScreen = document.getElementById("loadingScreen");
+const mainMenu = document.getElementById("mainMenu");
+const pauseMenu = document.getElementById("pauseMenu");
 
 const scene = new THREE.Scene();
 
-scene.background = new THREE.Color(0x080d14);
-scene.fog = new THREE.FogExp2(0x101923, 0.018);
+scene.background = new THREE.Color(0x101722);
+scene.fog = new THREE.FogExp2(0x101722, 0.012);
 
 const camera = new THREE.PerspectiveCamera(
-    75,
-    window.innerWidth / window.innerHeight,
-    0.1,
-    500
+  75,
+  window.innerWidth / window.innerHeight,
+  0.1,
+  1000
 );
 
 camera.position.set(0, 1.7, 8);
 
 const renderer = new THREE.WebGLRenderer({
-    antialias: true,
-    powerPreference: 'high-performance'
+  antialias: true,
+  powerPreference: "high-performance"
 });
 
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.8));
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.15;
+renderer.toneMappingExposure = 1.1;
 
-container.appendChild(renderer.domElement);
+container.prepend(renderer.domElement);
 
-// SISTEMAS
+// --------------------------------------------------
+// SISTEMAS DO MUNDO
+// --------------------------------------------------
 
-const world = createWorld(THREE, scene);
-const player = createPlayer(THREE, camera, scene);
+const lighting = createLighting(scene);
 
-const controls = createControls(
-    THREE,
-    camera,
-    renderer.domElement,
-    player
-);
+createWorld(scene);
 
-const flashlight = createFlashlight(THREE, camera);
-const interactions = createInteractions(THREE, scene, camera);
-const inventoryUI = setupInventoryUI();
-const audio = setupAudio();
+const player = createPlayer(camera);
+const controls = createControls(camera, renderer.domElement);
+const gameInterface = createInterface();
+const audio = createAudio();
 
-const doors = createDoors(THREE, scene);
-createInterior(THREE, scene);
+const flashlightButton = document.getElementById("flashlightBtn");
+const flashlight = createFlashlight(camera, flashlightButton);
 
-const apparition = createApparition(THREE, scene);
+const interactions = createInteractions(scene, camera);
+setupInventoryUI();
 
-doors.addDoor(43.9, 0, -6, 0, 'Delegacia');
-doors.addDoor(43.9, 0, -38, 0, 'Casa abandonada');
+createInterior(scene);
 
-setupInterface({ player, scene, camera });
+const doors = createDoors(scene);
 
-// ESTADO
+doors.addDoor(43.9, 0, -6, 0, "Delegacia");
+doors.addDoor(43.9, 0, -38, 0, "Casa abandonada");
+
+const apparition = createApparition(scene);
+const effects = createInteractionEffects(scene);
+
+const journal = createJournal();
+
+// --------------------------------------------------
+// ESTADO DO JOGO
+// --------------------------------------------------
 
 let gameStarted = false;
-let paused = false;
-let previousTime = 0;
+let gamePaused = false;
+let elapsedTime = 0;
 
-let currentChapter = 1;
+let collectedClues = new Set();
 let openedBuildings = new Set();
 
-const missionTitle = document.getElementById('mission-title');
-const missionDescription = document.getElementById('mission-description');
+const savedGame = loadGame();
 
-function showChapter(id) {
-    const chapter = chapters.find(item => item.id === id);
+if (savedGame) {
+  collectedClues = new Set(savedGame.collectedClues || []);
+  openedBuildings = new Set(savedGame.openedBuildings || []);
 
-    if (!chapter) return;
+  if (savedGame.journal) {
+    journal.restore(savedGame.journal);
+  }
 
-    missionTitle.textContent = chapter.title;
-    missionDescription.textContent = chapter.objective;
-
-    interactions.showMessage(
-        `CAPÍTULO ${chapter.id}: ${chapter.title.toUpperCase()}`,
-        5000
+  if (savedGame.position) {
+    camera.position.set(
+      savedGame.position.x,
+      savedGame.position.y,
+      savedGame.position.z
     );
+  }
 }
 
+// --------------------------------------------------
+// MISSÕES
+// --------------------------------------------------
+
+const missionText = document.getElementById("missionText");
+
+function updateMission(text) {
+  if (missionText) {
+    missionText.textContent = text;
+  }
+}
+
+function updateProgress() {
+  if (collectedClues.size === 0) {
+    updateMission("Explore a cidade abandonada e procure pistas.");
+  } else if (collectedClues.size < 4) {
+    updateMission(
+      `Encontre as pistas restantes: ${collectedClues.size}/4.`
+    );
+  } else {
+    updateMission("Investigue os edifícios abandonados.");
+  }
+}
+
+function registerClue(clue) {
+  if (!clue || !clue.id || collectedClues.has(clue.id)) return;
+
+  collectedClues.add(clue.id);
+
+  journal.addEntry(
+    clue.name || "Nova evidência",
+    clue.description || "Uma evidência encontrada na cidade."
+  );
+
+  saveProgress();
+  updateProgress();
+
+  if (collectedClues.size >= 4) {
+    completeChapter(3);
+    showChapter(4);
+
+    updateMission("Todas as pistas foram encontradas. Descubra o que aconteceu.");
+  }
+}
+
+// --------------------------------------------------
+// PORTAS
+// --------------------------------------------------
+
+function checkDoors() {
+  const nearbyDoor = doors.getDoors().find(door => {
+    const position = door.pivot.position;
+
+    const distance = camera.position.distanceTo(
+      new THREE.Vector3(position.x + 0.9, 1.4, position.z)
+    );
+
+    return distance < 3;
+  });
+
+  return nearbyDoor;
+}
+
+function interactWithDoor() {
+  const door = checkDoors();
+
+  if (!door) return false;
+
+  const opened = doors.toggle(door);
+
+  if (opened) {
+    openedBuildings.add(door.name);
+
+    if (door.name === "Delegacia") {
+      completeChapter(1);
+      showChapter(2);
+
+      journal.addEntry(
+        "Delegacia abandonada",
+        "A delegacia parece ter sido abandonada às pressas. Existem documentos que precisam ser investigados."
+      );
+    }
+
+    if (door.name === "Casa abandonada") {
+      completeChapter(2);
+      showChapter(3);
+
+      journal.addEntry(
+        "Casa abandonada",
+        "A casa guarda vestígios de uma família que desapareceu misteriosamente."
+      );
+    }
+
+    saveProgress();
+  }
+
+  return true;
+}
+
+// --------------------------------------------------
+// DIÁRIO
+// --------------------------------------------------
+
+const journalPanel = document.getElementById("journalPanel");
+const journalButton = document.getElementById("journalButton");
+const closeJournal = document.getElementById("closeJournal");
+
+function toggleJournal(force) {
+  if (!journalPanel) return;
+
+  const shouldOpen = typeof force === "boolean"
+    ? force
+    : !journalPanel.classList.contains("open");
+
+  journalPanel.classList.toggle("open", shouldOpen);
+}
+
+journalButton?.addEventListener("click", () => toggleJournal(true));
+closeJournal?.addEventListener("click", () => toggleJournal(false));
+
+window.addEventListener("keydown", event => {
+  if (event.code === "KeyJ" && gameStarted && !gamePaused) {
+    toggleJournal();
+  }
+});
+
+// --------------------------------------------------
+// SALVAMENTO
+// --------------------------------------------------
+
+function saveProgress() {
+  saveGame({
+    collectedClues: [...collectedClues],
+    openedBuildings: [...openedBuildings],
+    journal: journal.getEntries(),
+    position: {
+      x: camera.position.x,
+      y: camera.position.y,
+      z: camera.position.z
+    }
+  });
+}
+
+// --------------------------------------------------
+// INTERAÇÕES
+// --------------------------------------------------
+
+window.addEventListener("clueCollected", event => {
+  registerClue(event.detail);
+});
+
+window.addEventListener("keydown", event => {
+  if (!gameStarted || gamePaused) return;
+
+  if (event.code === "KeyE") {
+    if (interactWithDoor()) return;
+
+    interactions.interact();
+    saveProgress();
+  }
+});
+
+// --------------------------------------------------
+// MENU E PAUSA
+// --------------------------------------------------
+
 function startGame() {
-    gameStarted = true;
-    paused = false;
+  gameStarted = true;
+  gamePaused = false;
 
-    menu.classList.add('hidden');
-    pauseMenu.classList.add('hidden');
-    gameUI.classList.remove('hidden');
+  mainMenu.style.display = "none";
+  pauseMenu.style.display = "none";
+  container.style.display = "block";
 
-    controls.activate();
+  loadingScreen.style.display = "none";
+
+  updateProgress();
+
+  controls.lock?.();
+
+  if (audio.start) {
     audio.start();
-
-    renderer.domElement.requestPointerLock?.();
-
-    showChapter(1);
+  }
 }
 
 function pauseGame() {
-    if (!gameStarted || paused) return;
+  if (!gameStarted) return;
 
-    paused = true;
+  gamePaused = true;
+  pauseMenu.style.display = "flex";
 
-    pauseMenu.classList.remove('hidden');
-    inventoryUI.close();
-
-    document.exitPointerLock?.();
+  controls.unlock?.();
+  saveProgress();
 }
 
 function resumeGame() {
-    if (!gameStarted) return;
+  gamePaused = false;
+  pauseMenu.style.display = "none";
 
-    paused = false;
-
-    pauseMenu.classList.add('hidden');
-
-    controls.activate();
-
-    renderer.domElement.requestPointerLock?.();
+  controls.lock?.();
 }
 
 function returnToMenu() {
-    gameStarted = false;
-    paused = false;
+  gameStarted = false;
+  gamePaused = false;
 
-    pauseMenu.classList.add('hidden');
-    gameUI.classList.add('hidden');
-    menu.classList.remove('hidden');
+  pauseMenu.style.display = "none";
+  container.style.display = "none";
+  mainMenu.style.display = "flex";
 
-    document.exitPointerLock?.();
-
-    controls.deactivate();
-    flashlight.setEnabled(false);
-    inventoryUI.close();
-    audio.stop();
+  controls.unlock?.();
+  saveProgress();
 }
 
-document.getElementById('start-button')
-    .addEventListener('click', startGame);
+document.getElementById("startButton")
+  ?.addEventListener("click", startGame);
 
-document.getElementById('resume-button')
-    .addEventListener('click', resumeGame);
+document.getElementById("continueButton")
+  ?.addEventListener("click", startGame);
 
-document.getElementById('menu-button')
-    .addEventListener('click', returnToMenu);
+document.getElementById("resumeButton")
+  ?.addEventListener("click", resumeGame);
 
-document.getElementById('about-button')
-    .addEventListener('click', () => {
-        document.getElementById('about-modal')
-            .classList.remove('hidden');
-    });
+document.getElementById("returnMenuButton")
+  ?.addEventListener("click", returnToMenu);
 
-document.getElementById('close-about')
-    .addEventListener('click', () => {
-        document.getElementById('about-modal')
-            .classList.add('hidden');
-    });
+document.getElementById("aboutButton")
+  ?.addEventListener("click", () => {
+    document.getElementById("aboutModal").style.display = "flex";
+  });
 
-// LANTERNA
+document.getElementById("closeAboutButton")
+  ?.addEventListener("click", () => {
+    document.getElementById("aboutModal").style.display = "none";
+  });
 
-function toggleFlashlight() {
-    if (!gameStarted || paused) return;
+// --------------------------------------------------
+// CONTROLE DE PAUSA
+// --------------------------------------------------
 
-    const enabled = flashlight.toggle();
+window.addEventListener("keydown", event => {
+  if (event.code === "Escape" && gameStarted && !gamePaused) {
+    pauseGame();
+  }
+});
 
-    document.getElementById('flashlight-button')
-        .textContent = enabled
-            ? 'LANTERNA LIGADA [F]'
-            : 'LANTERNA DESLIGADA [F]';
+document.addEventListener("pointerlockchange", () => {
+  if (
+    gameStarted &&
+    !gamePaused &&
+    document.pointerLockElement !== renderer.domElement
+  ) {
+    pauseGame();
+  }
+});
 
-    interactions.showMessage(
-        enabled ? 'LANTERNA LIGADA' : 'LANTERNA DESLIGADA',
-        1200
-    );
+// --------------------------------------------------
+// REDIMENSIONAMENTO
+// --------------------------------------------------
+
+window.addEventListener("resize", () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+// --------------------------------------------------
+// RELÓGIO DO JOGO
+// --------------------------------------------------
+
+function updateClock(delta) {
+  elapsedTime += delta;
+
+  const clock = document.getElementById("gameClock");
+
+  if (clock) {
+    const totalMinutes = (23 * 60 + 47 + Math.floor(elapsedTime * 2)) % 1440;
+
+    const hours = String(Math.floor(totalMinutes / 60)).padStart(2, "0");
+    const minutes = String(totalMinutes % 60).padStart(2, "0");
+
+    clock.textContent = `${hours}:${minutes}`;
+  }
 }
 
-document.getElementById('flashlight-button')
-    .addEventListener('click', toggleFlashlight);
+// --------------------------------------------------
+// ANIMAÇÃO PRINCIPAL
+// --------------------------------------------------
 
-// PORTAS
+const clock = new THREE.Clock();
 
-function tryOpenDoor() {
-    const position = camera.position;
+function animate() {
+  requestAnimationFrame(animate);
 
-    for (let i = 0; i < doors.getDoors().length; i++) {
-        const door = doors.getDoors()[i];
+  const delta = Math.min(clock.getDelta(), 0.05);
 
-        const distance = position.distanceTo(
-            new THREE.Vector3(
-                door.pivot.position.x + 0.9,
-                1.4,
-                door.pivot.position.z
-            )
-        );
+  if (gameStarted && !gamePaused) {
+    updateClock(delta);
 
-        if (distance < 3.5) {
-            doors.toggle(door);
+    player.update?.(delta);
+    controls.update?.(delta);
 
-            if (door.opened) {
-                openedBuildings.add(door.name);
+    doors.update?.(delta);
 
-                interactions.showMessage(
-                    `${door.name.toUpperCase()} — ENTRADA LIBERADA`,
-                    3500
-                );
+    apparition.update?.(delta, camera);
+    effects.update?.(delta);
 
-                if (door.name === 'Delegacia') {
-                    completeChapter(1);
-                    currentChapter = 2;
-                    showChapter(2);
-                }
-
-                if (door.name === 'Casa abandonada') {
-                    completeChapter(2);
-                    currentChapter = 3;
-                    showChapter(3);
-                }
-            } else {
-                interactions.showMessage(
-                    'PORTA FECHADA',
-                    1500
-                );
-            }
-
-            return true;
-        }
-    }
-
-    return false;
-}
-
-// TECLADO
-
-window.addEventListener('keydown', event => {
-    if (!gameStarted || paused) return;
-
-    if (event.code === 'KeyF' && !event.repeat) {
-        toggleFlashlight();
-    }
-
-    if (event.code === 'KeyE' && !event.repeat) {
-        const doorHandled = tryOpenDoor();
-
-        if (!doorHandled) {
-            interactions.interact();
-        }
-    }
-});
-
-// DESCOBERTA DE PISTAS
-
-window.addEventListener('clueCollected', event => {
-    const count = interactions.getCollectedCount();
-
-    missionTitle.textContent = 'Investigue os documentos';
-
-    missionDescription.textContent =
-        `${count} pistas encontradas. Continue explorando.`;
-
-    if (count >= 4) {
-        completeChapter(3);
-        currentChapter = 4;
-
-        showChapter(4);
-    }
-
-    console.log('Pista:', event.detail.name);
-});
-
-// PAUSA
-
-document.addEventListener('keydown', event => {
-    if (
-        event.code === 'Escape' &&
-        gameStarted &&
-        !paused
-    ) {
-        pauseGame();
-    }
-});
-
-document.addEventListener('pointerlockchange', () => {
-    if (
-        gameStarted &&
-        !paused &&
-        document.pointerLockElement !== renderer.domElement
-    ) {
-        pauseGame();
-    }
-});
-
-// ANIMAÇÃO
-
-function animate(time = 0) {
-    requestAnimationFrame(animate);
-
-    const delta = Math.min(
-        (time - previousTime) / 1000,
-        0.05
-    );
-
-    previousTime = time;
-
-    if (gameStarted && !paused) {
-        controls.update(delta);
-        player.update(delta);
-        world.update(delta);
-        doors.update(delta);
-        interactions.update();
-        apparition.update(delta, camera);
-    }
+    interactions.update?.();
 
     renderer.render(scene, camera);
+  } else {
+    renderer.render(scene, camera);
+  }
 }
 
-// REDIMENSIONAMENTO
+// --------------------------------------------------
+// INICIALIZAÇÃO
+// --------------------------------------------------
 
-window.addEventListener('resize', () => {
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
+container.style.display = "none";
+pauseMenu.style.display = "none";
 
-    renderer.setSize(
-        window.innerWidth,
-        window.innerHeight
-    );
+loadingScreen.style.display = "none";
 
-    renderer.setPixelRatio(
-        Math.min(window.devicePixelRatio, 1.8)
-    );
-});
-
-// INICIAR
-
-loading.classList.add('hidden');
+if (savedGame) {
+  updateProgress();
+}
 
 animate();
 
-console.log('A CIDADE SEM ROSTO — ETAPA 3 CARREGADA.');
+console.log("A Cidade Sem Rosto foi inicializada.");
