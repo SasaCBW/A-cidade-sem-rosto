@@ -1,130 +1,241 @@
+import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js";
 
-export function createControls(THREE, camera, canvas, player) {
-    const keys = {};
+export function createControls(camera, domElement) {
+  const keys = {
+    forward: false,
+    backward: false,
+    left: false,
+    right: false,
+    sprint: false
+  };
 
-    let active = false;
-    let yaw = 0;
-    let pitch = 0;
+  const velocity = new THREE.Vector3();
+  const direction = new THREE.Vector3();
 
-    const direction = new THREE.Vector3();
+  const euler = new THREE.Euler(0, 0, 0, "YXZ");
+
+  const playerHeight = 1.7;
+  const walkSpeed = 4.2;
+  const sprintSpeed = 7.2;
+
+  let isLocked = false;
+  let movementEnabled = true;
+
+  const bounds = {
+    minX: -85,
+    maxX: 85,
+    minZ: -165,
+    maxZ: 65
+  };
+
+  camera.position.set(0, playerHeight, 8);
+
+  camera.rotation.order = "YXZ";
+
+  function onMouseMove(event) {
+    if (!isLocked || !movementEnabled) return;
+
+    const sensitivity = 0.002;
+
+    euler.setFromQuaternion(camera.quaternion);
+
+    euler.y -= event.movementX * sensitivity;
+    euler.x -= event.movementY * sensitivity;
+
+    const verticalLimit = Math.PI / 2 - 0.05;
+
+    euler.x = Math.max(
+      -verticalLimit,
+      Math.min(verticalLimit, euler.x)
+    );
+
+    camera.quaternion.setFromEuler(euler);
+  }
+
+  function onKeyDown(event) {
+    switch (event.code) {
+      case "KeyW":
+      case "ArrowUp":
+        keys.forward = true;
+        break;
+
+      case "KeyS":
+      case "ArrowDown":
+        keys.backward = true;
+        break;
+
+      case "KeyA":
+      case "ArrowLeft":
+        keys.left = true;
+        break;
+
+      case "KeyD":
+      case "ArrowRight":
+        keys.right = true;
+        break;
+
+      case "ShiftLeft":
+      case "ShiftRight":
+        keys.sprint = true;
+        break;
+    }
+  }
+
+  function onKeyUp(event) {
+    switch (event.code) {
+      case "KeyW":
+      case "ArrowUp":
+        keys.forward = false;
+        break;
+
+      case "KeyS":
+      case "ArrowDown":
+        keys.backward = false;
+        break;
+
+      case "KeyA":
+      case "ArrowLeft":
+        keys.left = false;
+        break;
+
+      case "KeyD":
+      case "ArrowRight":
+        keys.right = false;
+        break;
+
+      case "ShiftLeft":
+      case "ShiftRight":
+        keys.sprint = false;
+        break;
+    }
+  }
+
+  function clearKeys() {
+    Object.keys(keys).forEach(key => {
+      keys[key] = false;
+    });
+
+    velocity.set(0, 0, 0);
+  }
+
+  function onPointerLockChange() {
+    isLocked = document.pointerLockElement === domElement;
+
+    if (!isLocked) {
+      clearKeys();
+    }
+  }
+
+  function lock() {
+    if (!domElement || !domElement.requestPointerLock) {
+      return;
+    }
+
+    domElement.requestPointerLock();
+  }
+
+  function unlock() {
+    if (document.pointerLockElement) {
+      document.exitPointerLock();
+    }
+
+    clearKeys();
+  }
+
+  function update(delta) {
+    if (!movementEnabled || !isLocked) return;
+
+    const dt = Math.min(delta, 0.05);
+
+    direction.set(0, 0, 0);
+
+    if (keys.forward) direction.z -= 1;
+    if (keys.backward) direction.z += 1;
+    if (keys.left) direction.x -= 1;
+    if (keys.right) direction.x += 1;
+
+    if (direction.lengthSq() === 0) {
+      velocity.set(0, 0, 0);
+      return;
+    }
+
+    direction.normalize();
+
+    const speed = keys.sprint ? sprintSpeed : walkSpeed;
+
     const forward = new THREE.Vector3();
+    camera.getWorldDirection(forward);
+    forward.y = 0;
+    forward.normalize();
+
     const right = new THREE.Vector3();
+    right.crossVectors(forward, new THREE.Vector3(0, 1, 0));
+    right.normalize();
 
-    function onKeyDown(event) {
-        keys[event.code] = true;
+    const movement = new THREE.Vector3();
+
+    movement.addScaledVector(forward, -direction.z);
+    movement.addScaledVector(right, direction.x);
+
+    movement.normalize();
+
+    velocity.copy(movement).multiplyScalar(speed * dt);
+
+    camera.position.x += velocity.x;
+    camera.position.z += velocity.z;
+
+    camera.position.x = THREE.MathUtils.clamp(
+      camera.position.x,
+      bounds.minX,
+      bounds.maxX
+    );
+
+    camera.position.z = THREE.MathUtils.clamp(
+      camera.position.z,
+      bounds.minZ,
+      bounds.maxZ
+    );
+
+    // Mantém a câmera na altura dos olhos.
+    camera.position.y = playerHeight;
+  }
+
+  function setMovementEnabled(enabled) {
+    movementEnabled = Boolean(enabled);
+
+    if (!movementEnabled) {
+      clearKeys();
     }
+  }
 
-    function onKeyUp(event) {
-        keys[event.code] = false;
+  function setBounds(newBounds = {}) {
+    Object.assign(bounds, newBounds);
+  }
+
+  document.addEventListener("mousemove", onMouseMove);
+  document.addEventListener("keydown", onKeyDown);
+  document.addEventListener("keyup", onKeyUp);
+  document.addEventListener("pointerlockchange", onPointerLockChange);
+  window.addEventListener("blur", clearKeys);
+
+  return {
+    lock,
+    unlock,
+    update,
+    clearKeys,
+    setMovementEnabled,
+    setBounds,
+
+    isLocked: () => isLocked,
+
+    destroy() {
+      unlock();
+
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("keydown", onKeyDown);
+      document.removeEventListener("keyup", onKeyUp);
+      document.removeEventListener("pointerlockchange", onPointerLockChange);
+      window.removeEventListener("blur", clearKeys);
     }
-
-    function onMouseMove(event) {
-        if (!active || document.pointerLockElement !== canvas) {
-            return;
-        }
-
-        const sensitivity = 0.002;
-
-        yaw -= event.movementX * sensitivity;
-        pitch -= event.movementY * sensitivity;
-
-        pitch = THREE.MathUtils.clamp(
-            pitch,
-            -Math.PI / 2 + 0.05,
-            Math.PI / 2 - 0.05
-        );
-
-        camera.rotation.order = 'YXZ';
-        camera.rotation.y = yaw;
-        camera.rotation.x = pitch;
-    }
-
-    function activate() {
-        active = true;
-
-        window.addEventListener('keydown', onKeyDown);
-        window.addEventListener('keyup', onKeyUp);
-        document.addEventListener('mousemove', onMouseMove);
-    }
-
-    function deactivate() {
-        active = false;
-
-        Object.keys(keys).forEach(key => {
-            keys[key] = false;
-        });
-
-        window.removeEventListener('keydown', onKeyDown);
-        window.removeEventListener('keyup', onKeyUp);
-        document.removeEventListener('mousemove', onMouseMove);
-    }
-
-    function update(delta) {
-        if (!active) return;
-
-        direction.set(0, 0, 0);
-
-        forward.set(
-            -Math.sin(yaw),
-            0,
-            -Math.cos(yaw)
-        );
-
-        right.set(
-            Math.cos(yaw),
-            0,
-            -Math.sin(yaw)
-        );
-
-        if (keys['KeyW'] || keys['ArrowUp']) {
-            direction.add(forward);
-        }
-
-        if (keys['KeyS'] || keys['ArrowDown']) {
-            direction.sub(forward);
-        }
-
-        if (keys['KeyD'] || keys['ArrowRight']) {
-            direction.add(right);
-        }
-
-        if (keys['KeyA'] || keys['ArrowLeft']) {
-            direction.sub(right);
-        }
-
-        const moving = direction.lengthSq() > 0;
-
-        player.moving = moving;
-
-        if (moving) {
-            direction.normalize();
-
-            const speed = keys['ShiftLeft']
-                ? 7
-                : player.speed;
-
-            camera.position.addScaledVector(
-                direction,
-                speed * delta
-            );
-        }
-
-        camera.position.x = THREE.MathUtils.clamp(
-            camera.position.x,
-            -55,
-            55
-        );
-
-        camera.position.z = THREE.MathUtils.clamp(
-            camera.position.z,
-            -110,
-            110
-        );
-    }
-
-    return {
-        activate,
-        deactivate,
-        update
-    };
+  };
 }
