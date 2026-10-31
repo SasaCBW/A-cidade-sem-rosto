@@ -1,60 +1,91 @@
 
-const missions = [
-    {
-        id: "hospital_investigation",
-        name: "Os registros do hospital",
-        location: "Hospital abandonado",
-        description:
-            "Investigue o hospital e descubra por que todos os pacientes desapareceram.",
-        requiredClues: [
-            "hospital_record",
-            "hospital_photo"
-        ],
-        completed: false
-    },
-
-    {
-        id: "school_investigation",
-        name: "O último dia de aula",
-        location: "Escola abandonada",
-        description:
-            "Encontre o diário e a mensagem deixada dentro da escola.",
-        requiredClues: [
-            "school_diary",
-            "school_message"
-        ],
-        completed: false
-    }
-];
+/* ==========================================
+   A CIDADE SEM ROSTO
+   MISSÕES DE INVESTIGAÇÃO
+========================================== */
 
 export function createLocationMissions() {
-    const completedMissions = new Set();
 
-    function checkCompletion(collectedClues) {
-        if (!collectedClues) {
-            return null;
+    const missions = [
+        {
+            id: "hospital_investigation",
+            name: "Os registros do hospital",
+            location: "Hospital abandonado",
+
+            description:
+                "Os registros médicos revelam que vários pacientes foram internados sem qualquer identificação.",
+
+            objective:
+                "Encontre o prontuário médico e a fotografia antiga.",
+
+            requiredClues: [
+                "hospital_record",
+                "hospital_photo"
+            ],
+
+            reward:
+                "Uma nova informação sobre os desaparecimentos."
+        },
+
+        {
+            id: "school_investigation",
+            name: "O último dia de aula",
+            location: "Escola abandonada",
+
+            description:
+                "Um diário esquecido e uma mensagem no quadro podem explicar o que aconteceu com os estudantes.",
+
+            objective:
+                "Encontre o diário e investigue a mensagem deixada na sala.",
+
+            requiredClues: [
+                "school_diary",
+                "school_message"
+            ],
+
+            reward:
+                "Uma pista sobre a origem do mistério."
         }
+    ];
+
+    let completedMissions = [];
+    let activeMissionIndex = 0;
+
+    /* ======================================
+       VERIFICAR CONCLUSÃO
+    ====================================== */
+
+    function checkCompletion(collectedClues = []) {
+        const clues = new Set(collectedClues);
 
         for (const mission of missions) {
-            if (completedMissions.has(mission.id)) {
-                continue;
-            }
+            const alreadyCompleted =
+                completedMissions.includes(mission.id);
 
-            const allFound = mission.requiredClues.every(
-                (clueId) => collectedClues.has(clueId)
-            );
+            if (alreadyCompleted) continue;
+
+            const allFound =
+                mission.requiredClues.every(
+                    (clueId) => clues.has(clueId)
+                );
 
             if (allFound) {
-                completedMissions.add(mission.id);
+                completedMissions.push(mission.id);
 
-                mission.completed = true;
+                activeMissionIndex = Math.min(
+                    missions.findIndex(
+                        (item) => item.id === mission.id
+                    ) + 1,
+                    missions.length - 1
+                );
 
                 return {
                     completed: true,
                     id: mission.id,
                     name: mission.name,
                     location: mission.location,
-                    description: mission.description
+                    description: mission.description,
+                    reward: mission.reward
                 };
             }
         }
@@ -62,37 +93,61 @@ export function createLocationMissions() {
         return null;
     }
 
-    function getCompleted() {
-        return Array.from(completedMissions);
+    /* ======================================
+       MISSÃO ATUAL
+    ====================================== */
+
+    function getCurrentMission() {
+        const nextMission = missions.find(
+            (mission) =>
+                !completedMissions.includes(mission.id)
+        );
+
+        return nextMission
+            ? { ...nextMission }
+            : null;
     }
 
-    function restore(savedMissions = []) {
-        completedMissions.clear();
+    /* ======================================
+       PROGRESSO DA MISSÃO
+    ====================================== */
 
-        missions.forEach((mission) => {
-            mission.completed = false;
-        });
+    function getMissionProgress(id, collectedClues = []) {
+        const mission = getMission(id);
 
-        savedMissions.forEach((id) => {
-            completedMissions.add(id);
+        if (!mission) return null;
 
-            const mission = missions.find(
-                (mission) => mission.id === id
-            );
+        const clues = new Set(collectedClues);
 
-            if (mission) {
-                mission.completed = true;
-            }
-        });
+        const found = mission.requiredClues.filter(
+            (clueId) => clues.has(clueId)
+        ).length;
+
+        return {
+            found,
+            total: mission.requiredClues.length,
+            percentage: Math.round(
+                (found / mission.requiredClues.length) * 100
+            ),
+            completed: completedMissions.includes(id)
+        };
     }
+
+    /* ======================================
+       TODAS AS MISSÕES
+    ====================================== */
 
     function getAllMissions() {
         return missions.map((mission) => ({
             ...mission,
             requiredClues: [...mission.requiredClues],
-            completed: completedMissions.has(mission.id)
+            completed: completedMissions.includes(mission.id)
         }));
     }
+
+    /* ======================================
+       BUSCAR MISSÃO
+    ====================================== */
 
     function getMission(id) {
         const mission = missions.find(
@@ -103,23 +158,88 @@ export function createLocationMissions() {
 
         return {
             ...mission,
-            completed: completedMissions.has(mission.id)
+            requiredClues: [...mission.requiredClues]
         };
     }
 
-    function reset() {
-        completedMissions.clear();
+    /* ======================================
+       CONCLUIR MANUALMENTE
+    ====================================== */
 
-        missions.forEach((mission) => {
-            mission.completed = false;
-        });
+    function completeMission(id) {
+        const mission = getMission(id);
+
+        if (!mission) return false;
+
+        if (completedMissions.includes(id)) {
+            return false;
+        }
+
+        completedMissions.push(id);
+
+        return true;
     }
+
+    /* ======================================
+       RESTAURAR PROGRESSO
+    ====================================== */
+
+    function restore(savedMissions = []) {
+        if (!Array.isArray(savedMissions)) return;
+
+        completedMissions = savedMissions.filter(
+            (id) =>
+                missions.some((mission) => mission.id === id)
+        );
+
+        activeMissionIndex = missions.findIndex(
+            (mission) =>
+                !completedMissions.includes(mission.id)
+        );
+
+        if (activeMissionIndex < 0) {
+            activeMissionIndex = missions.length;
+        }
+    }
+
+    /* ======================================
+       CONSULTAR CONCLUÍDAS
+    ====================================== */
+
+    function getCompleted() {
+        return [...completedMissions];
+    }
+
+    /* ======================================
+       VERIFICAR SE TERMINOU
+    ====================================== */
+
+    function areAllCompleted() {
+        return completedMissions.length === missions.length;
+    }
+
+    /* ======================================
+       REINICIAR MISSÕES
+    ====================================== */
+
+    function reset() {
+        completedMissions = [];
+        activeMissionIndex = 0;
+    }
+
+    /* ======================================
+       RETORNO
+    ====================================== */
 
     return {
         checkCompletion,
-        getCompleted,
+        getCurrentMission,
+        getMissionProgress,
         getAllMissions,
         getMission,
+        completeMission,
+        getCompleted,
+        areAllCompleted,
         restore,
         reset
     };
