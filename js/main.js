@@ -1,4 +1,3 @@
-
 import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js";
 
 import { createWorld } from "./world.js";
@@ -12,36 +11,15 @@ import { setupInventoryUI } from "./inventory-ui.js";
 import { createDoors } from "./doors.js";
 import { createInterior } from "./interior.js";
 import { createApparition } from "./apparition.js";
-import {
-  completeChapter,
-  showChapter
-} from "./chapters.js";
-
+import { completeChapter, showChapter } from "./chapters.js";
 import { createLighting } from "./lighting.js";
 import { createInteractionEffects } from "./interaction-effects.js";
-
-import {
-  saveGame,
-  loadGame
-} from "./save-system.js";
-
+import { saveGame, loadGame } from "./save-system.js";
 import { createJournal } from "./journal.js";
-
-import {
-  createHospital
-} from "./hospital.js";
-
-import {
-  createSchool
-} from "./school.js";
-
-import {
-  createLocationClues
-} from "./location-clues.js";
-
-import {
-  createLocationMissions
-} from "./location-missions.js";
+import { createHospital } from "./hospital.js";
+import { createSchool } from "./school.js";
+import { createLocationClues } from "./location-clues.js";
+import { createLocationMissions } from "./location-missions.js";
 
 // ==================================================
 // ELEMENTOS DA INTERFACE
@@ -59,6 +37,10 @@ const gameMessage = document.getElementById("gameMessage");
 const journalPanel = document.getElementById("journalPanel");
 const journalButton = document.getElementById("journalButton");
 const closeJournal = document.getElementById("closeJournal");
+
+if (!container) {
+  throw new Error("O elemento #gameContainer não foi encontrado no index.html.");
+}
 
 // ==================================================
 // CENA 3D
@@ -107,6 +89,7 @@ createWorld(scene);
 
 const player = createPlayer(camera);
 const controls = createControls(camera, renderer.domElement);
+
 const gameInterface = createInterface();
 const audio = createAudio();
 
@@ -125,12 +108,9 @@ const flashlight = createFlashlight(
 // INVENTÁRIO E INTERAÇÕES
 // ==================================================
 
-const interactions = createInteractions(
-  scene,
-  camera
-);
+const interactions = createInteractions(scene, camera);
 
-setupInventoryUI();
+const inventoryUI = setupInventoryUI();
 
 // ==================================================
 // EDIFÍCIOS
@@ -196,9 +176,9 @@ let openedBuildings = new Set();
 
 let gameStarted = false;
 let gamePaused = false;
+let hasEnteredPointerLock = false;
 
 let elapsedTime = 0;
-
 let messageTimeout = null;
 
 // ==================================================
@@ -226,10 +206,21 @@ if (savedGame) {
 
   if (savedGame.position) {
     camera.position.set(
-      savedGame.position.x,
-      savedGame.position.y,
-      savedGame.position.z
+      savedGame.position.x ?? 0,
+      savedGame.position.y ?? 1.7,
+      savedGame.position.z ?? 8
     );
+  }
+
+  // Remove do cenário as pistas já coletadas.
+  for (let i = locationClueObjects.length - 1; i >= 0; i--) {
+    const object = locationClueObjects[i];
+    const clue = object.userData.clue;
+
+    if (clue && collectedClues.has(clue.id)) {
+      scene.remove(object);
+      locationClueObjects.splice(i, 1);
+    }
   }
 }
 
@@ -243,7 +234,9 @@ function showMessage(message) {
   gameMessage.textContent = message;
   gameMessage.classList.add("visible");
 
-  clearTimeout(messageTimeout);
+  if (messageTimeout) {
+    clearTimeout(messageTimeout);
+  }
 
   messageTimeout = setTimeout(() => {
     gameMessage.classList.remove("visible");
@@ -283,22 +276,27 @@ function updateProgress() {
 // ==================================================
 
 function saveProgress() {
-  saveGame({
-    collectedClues: [...collectedClues],
+  try {
+    saveGame({
+      collectedClues: [...collectedClues],
 
-    openedBuildings: [...openedBuildings],
+      openedBuildings: [...openedBuildings],
 
-    journal: journal.getEntries(),
+      journal: journal.getEntries(),
 
-    completedLocationMissions:
-      locationMissionSystem.getCompleted(),
+      completedLocationMissions:
+        locationMissionSystem.getCompleted(),
 
-    position: {
-      x: camera.position.x,
-      y: camera.position.y,
-      z: camera.position.z
-    }
-  });
+      position: {
+        x: camera.position.x,
+        y: camera.position.y,
+        z: camera.position.z
+      }
+    });
+  } catch (error) {
+    console.error("Não foi possível salvar o progresso:", error);
+    showMessage("NÃO FOI POSSÍVEL SALVAR O JOGO.");
+  }
 }
 
 // ==================================================
@@ -306,23 +304,41 @@ function saveProgress() {
 // ==================================================
 
 function registerClue(clue) {
-  if (!clue || !clue.id) return;
+  if (!clue || !clue.id) return false;
 
   if (collectedClues.has(clue.id)) {
-    return;
+    return false;
   }
 
   collectedClues.add(clue.id);
 
+  const clueName = clue.name || "Nova evidência";
+
+  const clueDescription =
+    clue.description || "Uma evidência encontrada na cidade.";
+
+  // Adiciona a evidência ao diário.
   journal.addEntry(
-    clue.name || "Nova evidência",
-    clue.description || "Uma evidência encontrada na cidade."
+    clueName,
+    clueDescription
   );
 
-  showMessage("NOVA PISTA ADICIONADA AO DIÁRIO");
+  // Adiciona a evidência ao inventário.
+  window.dispatchEvent(
+    new CustomEvent("inventoryItemAdded", {
+      detail: {
+        id: clue.id,
+        name: clueName,
+        description: clueDescription
+      }
+    })
+  );
 
+  showMessage("NOVA PISTA ADICIONADA AO INVENTÁRIO");
+
+  // Verifica as missões especiais.
   const completedMissions =
-    locationMissionSystem.checkCompletion(collectedClues);
+    locationMissionSystem.checkCompletion(collectedClues) || [];
 
   completedMissions.forEach(mission => {
     journal.addEntry(
@@ -333,6 +349,7 @@ function registerClue(clue) {
     showMessage("MISSÃO CONCLUÍDA: " + mission.title);
   });
 
+  // Progressão dos capítulos.
   if (collectedClues.size >= 4) {
     completeChapter(3);
     showChapter(4);
@@ -345,6 +362,8 @@ function registerClue(clue) {
   }
 
   saveProgress();
+
+  return true;
 }
 
 // ==================================================
@@ -359,13 +378,11 @@ function findNearbyLocationClue() {
     camera
   );
 
-  const availableObjects = locationClueObjects.filter(
-    object => {
-      const clue = object.userData.clue;
+  const availableObjects = locationClueObjects.filter(object => {
+    const clue = object.userData.clue;
 
-      return clue && !collectedClues.has(clue.id);
-    }
-  );
+    return clue && !collectedClues.has(clue.id);
+  });
 
   const intersections = clueRaycaster.intersectObjects(
     availableObjects,
@@ -394,7 +411,11 @@ function collectLocationClue() {
 
   const clue = object.userData.clue;
 
-  registerClue(clue);
+  const collected = registerClue(clue);
+
+  if (!collected) {
+    return false;
+  }
 
   scene.remove(object);
 
@@ -412,18 +433,20 @@ function collectLocationClue() {
 // ==================================================
 
 function findNearbyDoor() {
+  if (!doors || !doors.getDoors) return null;
+
   return doors.getDoors().find(door => {
+    if (!door || !door.pivot) return false;
+
     const position = door.pivot.position;
 
-    const distance = camera.position.distanceTo(
-      new THREE.Vector3(
-        position.x + 0.9,
-        1.4,
-        position.z
-      )
+    const doorPosition = new THREE.Vector3(
+      position.x + 0.9,
+      1.4,
+      position.z
     );
 
-    return distance < 3;
+    return camera.position.distanceTo(doorPosition) < 3;
   });
 }
 
@@ -482,6 +505,8 @@ window.addEventListener("keydown", event => {
 
   if (event.code !== "KeyE") return;
 
+  if (event.repeat) return;
+
   if (collectLocationClue()) {
     return;
   }
@@ -490,7 +515,9 @@ window.addEventListener("keydown", event => {
     return;
   }
 
-  interactions.interact();
+  if (interactions && interactions.interact) {
+    interactions.interact();
+  }
 });
 
 // ==================================================
@@ -523,7 +550,8 @@ window.addEventListener("keydown", event => {
   if (
     event.code === "KeyJ" &&
     gameStarted &&
-    !gamePaused
+    !gamePaused &&
+    !event.repeat
   ) {
     toggleJournal();
   }
@@ -551,19 +579,29 @@ function startGame() {
   gameStarted = true;
   gamePaused = false;
 
-  mainMenu.style.display = "none";
-  pauseMenu.style.display = "none";
+  if (mainMenu) {
+    mainMenu.style.display = "none";
+  }
+
+  if (pauseMenu) {
+    pauseMenu.style.display = "none";
+  }
+
   container.style.display = "block";
 
-  loadingScreen.style.display = "none";
+  if (loadingScreen) {
+    loadingScreen.style.display = "none";
+  }
 
   updateProgress();
 
-  if (audio.start) {
+  if (audio && audio.start) {
     audio.start();
   }
 
-  controls.lock?.();
+  if (controls && controls.lock) {
+    controls.lock();
+  }
 }
 
 function pauseGame() {
@@ -571,9 +609,13 @@ function pauseGame() {
 
   gamePaused = true;
 
-  pauseMenu.style.display = "flex";
+  if (pauseMenu) {
+    pauseMenu.style.display = "flex";
+  }
 
-  controls.unlock?.();
+  if (controls && controls.unlock) {
+    controls.unlock();
+  }
 
   saveProgress();
 }
@@ -581,23 +623,39 @@ function pauseGame() {
 function resumeGame() {
   gamePaused = false;
 
-  pauseMenu.style.display = "none";
+  if (pauseMenu) {
+    pauseMenu.style.display = "none";
+  }
 
-  controls.lock?.();
+  if (controls && controls.lock) {
+    controls.lock();
+  }
 }
 
 function returnToMenu() {
   gameStarted = false;
   gamePaused = false;
 
-  pauseMenu.style.display = "none";
-  container.style.display = "none";
-  mainMenu.style.display = "flex";
+  if (pauseMenu) {
+    pauseMenu.style.display = "none";
+  }
 
-  controls.unlock?.();
+  container.style.display = "none";
+
+  if (mainMenu) {
+    mainMenu.style.display = "flex";
+  }
+
+  if (controls && controls.unlock) {
+    controls.unlock();
+  }
 
   saveProgress();
 }
+
+// ==================================================
+// BOTÕES DO MENU
+// ==================================================
 
 document.getElementById("startButton")
   ?.addEventListener("click", startGame);
@@ -617,16 +675,24 @@ document.getElementById("returnMenuButton")
 
 document.getElementById("aboutButton")
   ?.addEventListener("click", () => {
-    document.getElementById("aboutModal").style.display = "flex";
+    const aboutModal = document.getElementById("aboutModal");
+
+    if (aboutModal) {
+      aboutModal.style.display = "flex";
+    }
   });
 
 document.getElementById("closeAboutButton")
   ?.addEventListener("click", () => {
-    document.getElementById("aboutModal").style.display = "none";
+    const aboutModal = document.getElementById("aboutModal");
+
+    if (aboutModal) {
+      aboutModal.style.display = "none";
+    }
   });
 
 // ==================================================
-// PAUSA
+// PAUSA PELO ESC
 // ==================================================
 
 window.addEventListener("keydown", event => {
@@ -639,11 +705,23 @@ window.addEventListener("keydown", event => {
   }
 });
 
+// ==================================================
+// CONTROLE DO MOUSE
+// ==================================================
+
 document.addEventListener("pointerlockchange", () => {
+  const isLocked =
+    document.pointerLockElement === renderer.domElement;
+
+  if (isLocked) {
+    hasEnteredPointerLock = true;
+    return;
+  }
+
   if (
+    hasEnteredPointerLock &&
     gameStarted &&
-    !gamePaused &&
-    document.pointerLockElement !== renderer.domElement
+    !gamePaused
   ) {
     pauseGame();
   }
@@ -709,21 +787,32 @@ function animate() {
   if (gameStarted && !gamePaused) {
     updateClock(delta);
 
-    player.update?.(delta);
-    controls.update?.(delta);
+    if (player && player.update) {
+      player.update(delta);
+    }
 
-    doors.update?.(delta);
+    if (controls && controls.update) {
+      controls.update(delta);
+    }
 
-    apparition.update?.(delta, camera);
+    if (doors && doors.update) {
+      doors.update(delta);
+    }
 
-    effects.update?.(delta);
+    if (apparition && apparition.update) {
+      apparition.update(delta, camera);
+    }
 
-    interactions.update?.();
+    if (effects && effects.update) {
+      effects.update(delta);
+    }
 
-    renderer.render(scene, camera);
-  } else {
-    renderer.render(scene, camera);
+    if (interactions && interactions.update) {
+      interactions.update();
+    }
   }
+
+  renderer.render(scene, camera);
 }
 
 // ==================================================
@@ -731,8 +820,14 @@ function animate() {
 // ==================================================
 
 container.style.display = "none";
-pauseMenu.style.display = "none";
-loadingScreen.style.display = "none";
+
+if (pauseMenu) {
+  pauseMenu.style.display = "none";
+}
+
+if (loadingScreen) {
+  loadingScreen.style.display = "none";
+}
 
 updateProgress();
 
