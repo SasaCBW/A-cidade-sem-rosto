@@ -1,0 +1,150 @@
+
+/* BOTÕES PRINCIPAIS */
+
+#flashlightBtn,
+#journalButton,
+#inventoryButton {
+  position: fixed;
+  z-index: 1100;
+  padding: 13px 17px;
+  border: 1px solid rgba(180, 198, 218, 0.35);
+  border-radius: 7px;
+  background: rgba(10, 16, 25, 0.94);
+  color: #e6edf5;
+  font-family: Arial, sans-serif;
+  font-size: 11px;
+  font-weight: bold;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: 0.25s ease;
+}
+
+#flashlightBtn {
+  right: 20px;
+  bottom: 22px;
+}
+
+#journalButton {
+  right: 20px;
+  bottom: 78px;
+}
+
+#inventoryButton {
+  right: 20px;
+  bottom: 134px;
+}
+
+#flashlightBtn:hover,
+#journalButton:hover,
+#inventoryButton:hover {
+  background: #28394c;
+  border-color: #c9d8e8;
+  transform: translateY(-2px);
+}
+
+#flashlightBtn.flashlight-on {
+  color: #ffe5a3;
+  border-color: #d6b96d;
+  box-shadow: 0 0 15px rgba(214, 185, 109, 0.25);
+}
+
+/* INVENTÁRIO */
+
+#inventoryPanel {
+  display: none;
+  position: fixed;
+  z-index: 1200;
+  inset: 12% 15%;
+  overflow-y: auto;
+  padding: 30px;
+  color: #e6edf5;
+  background: rgba(9, 14, 22, 0.97);
+  border: 1px solid rgba(180, 198, 218, 0.3);
+  border-radius: 10px;
+  font-family: Arial, sans-serif;
+}
+
+#inventoryPanel.open {
+  display: block;
+}
+
+.inventory-header h2 {
+  color: #d7bd86;
+  letter-spacing: 3px;
+}
+
+.inventory-item {
+  margin-top: 15px;
+  padding: 17px;
+  background: rgba(255, 255, 255, 0.05);
+  border-left: 3px solid #b99b61;
+  border-radius: 5px;
+}
+
+.inventory-item strong {
+  color: #e5d2a8;
+}
+
+.inventory-item p {
+  color: #bac6d3;
+  line-height: 1.5;
+}
+
+.inventory-hint {
+  margin-top: 25px;
+  color: #8996a6;
+  font-size: 12px;
+}
+
+#journalPanel {
+  z-index: 1200;
+}
+
+#journalPanel.open {
+  display: block;
+}
+
+/* MENUS */
+
+#mainMenu button,
+#pauseMenu button,
+#aboutModal button {
+  cursor: pointer;
+  transition: 0.25s ease;
+}
+
+#mainMenu button:hover,
+#pauseMenu button:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.2);
+}
+
+/* CELULAR */
+
+@media (max-width: 600px) {
+  #flashlightBtn,
+  #journalButton,
+  #inventoryButton {
+    right: 10px;
+    padding: 11px;
+    font-size: 9px;
+  }
+
+  #flashlightBtn {
+    bottom: 12px;
+  }
+
+  #journalButton {
+    bottom: 60px;
+  }
+
+  #inventoryButton {
+    bottom: 108px;
+  }
+
+  #inventoryPanel,
+  #journalPanel {
+    inset: 5%;
+    padding: 18px;
+  }
+}
