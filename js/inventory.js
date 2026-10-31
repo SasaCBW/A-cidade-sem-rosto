@@ -1,241 +1,221 @@
+
+/* ==========================================
+   A CIDADE SEM ROSTO
+   SISTEMA DE INVENTÁRIO
+========================================== */
+
 export function createInventory() {
+    let items = [];
+    let selectedItem = null;
 
-  const items = [];
+    const categories = [
+        "Todos",
+        "Documento",
+        "Fotografia",
+        "Diário",
+        "Mensagem",
+        "Objeto",
+        "Pista"
+    ];
 
-  const itemIds = new Set();
+    /* ======================================
+       ADICIONAR ITEM
+    ====================================== */
 
-  let selectedItem = null;
+    function add(item) {
+        if (!item || !item.id) return false;
 
-  // =========================================
-  // ADICIONAR OBJETO
-  // =========================================
+        const alreadyExists = items.some(
+            (existing) => existing.id === item.id
+        );
 
-  function addItem(item) {
+        if (alreadyExists) return false;
 
-    if (!item || !item.id) {
-      return false;
+        const newItem = {
+            id: item.id,
+            name: item.name || item.title || "Objeto desconhecido",
+            description: item.description || "Nenhuma descrição disponível.",
+            category: item.category || "Objeto",
+            collectedAt: new Date().toISOString(),
+            icon: item.icon || "◆"
+        };
+
+        items.push(newItem);
+
+        window.dispatchEvent(
+            new CustomEvent("inventoryUpdated", {
+                detail: {
+                    items: getItems(),
+                    added: newItem
+                }
+            })
+        );
+
+        window.dispatchEvent(
+            new CustomEvent("inventoryItemAdded", {
+                detail: newItem
+            })
+        );
+
+        return true;
     }
 
-    if (itemIds.has(item.id)) {
-      return false;
+    /* ======================================
+       REMOVER ITEM
+    ====================================== */
+
+    function remove(id) {
+        const initialLength = items.length;
+
+        items = items.filter(
+            (item) => item.id !== id
+        );
+
+        if (selectedItem === id) {
+            selectedItem = null;
+        }
+
+        const removed = items.length !== initialLength;
+
+        if (removed) {
+            dispatchUpdate();
+        }
+
+        return removed;
     }
 
-    const newItem = {
-      id: item.id,
-      name: item.name || "Objeto desconhecido",
-      description: item.description || "Nenhuma informação disponível.",
-      type: item.type || "object",
-      collectedAt: new Date().toISOString()
-    };
+    /* ======================================
+       CONSULTAR ITENS
+    ====================================== */
 
-    items.push(newItem);
-
-    itemIds.add(newItem.id);
-
-    window.dispatchEvent(
-      new CustomEvent("inventoryItemAdded", {
-        detail: newItem
-      })
-    );
-
-    return true;
-
-  }
-
-  // =========================================
-  // REMOVER OBJETO
-  // =========================================
-
-  function removeItem(id) {
-
-    const index = items.findIndex(
-      item => item.id === id
-    );
-
-    if (index === -1) {
-      return false;
+    function getItems() {
+        return items.map((item) => ({ ...item }));
     }
 
-    items.splice(index, 1);
+    function getItem(id) {
+        const item = items.find(
+            (entry) => entry.id === id
+        );
 
-    itemIds.delete(id);
-
-    if (selectedItem === id) {
-      selectedItem = null;
+        return item ? { ...item } : null;
     }
 
-    return true;
-
-  }
-
-  // =========================================
-  // BUSCAR OBJETO
-  // =========================================
-
-  function getItem(id) {
-
-    return items.find(
-      item => item.id === id
-    ) || null;
-
-  }
-
-  // =========================================
-  // LISTAR OBJETOS
-  // =========================================
-
-  function getItems() {
-
-    return items.map(item => ({
-      ...item
-    }));
-
-  }
-
-  // =========================================
-  // SELECIONAR OBJETO
-  // =========================================
-
-  function selectItem(id) {
-
-    const item = getItem(id);
-
-    if (!item) {
-      return null;
+    function count() {
+        return items.length;
     }
 
-    selectedItem = id;
+    /* ======================================
+       SELECIONAR ITEM
+    ====================================== */
+
+    function select(id) {
+        const exists = items.some(
+            (item) => item.id === id
+        );
+
+        if (!exists) return false;
+
+        selectedItem = id;
+
+        return true;
+    }
+
+    function getSelected() {
+        return selectedItem
+            ? getItem(selectedItem)
+            : null;
+    }
+
+    /* ======================================
+       FILTRAR CATEGORIAS
+    ====================================== */
+
+    function filter(category = "Todos") {
+        if (category === "Todos") {
+            return getItems();
+        }
+
+        return items
+            .filter((item) => item.category === category)
+            .map((item) => ({ ...item }));
+    }
+
+    function getCategories() {
+        return [...categories];
+    }
+
+    /* ======================================
+       RESTAURAR INVENTÁRIO
+    ====================================== */
+
+    function restore(savedItems = []) {
+        if (!Array.isArray(savedItems)) return;
+
+        items = savedItems
+            .filter((item) => item && item.id)
+            .map((item) => ({
+                id: item.id,
+                name: item.name || item.title || "Objeto desconhecido",
+                description: item.description || "",
+                category: item.category || "Objeto",
+                collectedAt: item.collectedAt || null,
+                icon: item.icon || "◆"
+            }));
+
+        selectedItem = null;
+
+        dispatchUpdate();
+    }
+
+    /* ======================================
+       EXPORTAR INVENTÁRIO
+    ====================================== */
+
+    function exportItems() {
+        return JSON.stringify(items, null, 2);
+    }
+
+    /* ======================================
+       LIMPAR INVENTÁRIO
+    ====================================== */
+
+    function clear() {
+        items = [];
+        selectedItem = null;
+
+        dispatchUpdate();
+    }
+
+    /* ======================================
+       ATUALIZAR INTERFACE
+    ====================================== */
+
+    function dispatchUpdate() {
+        window.dispatchEvent(
+            new CustomEvent("inventoryUpdated", {
+                detail: {
+                    items: getItems()
+                }
+            })
+        );
+    }
+
+    /* ======================================
+       API PÚBLICA
+    ====================================== */
 
     return {
-      ...item
+        add,
+        remove,
+        getItems,
+        getItem,
+        count,
+        select,
+        getSelected,
+        filter,
+        getCategories,
+        restore,
+        exportItems,
+        clear
     };
-
-  }
-
-  function getSelectedItem() {
-
-    return getItem(selectedItem);
-
-  }
-
-  // =========================================
-  // VERIFICAR OBJETO
-  // =========================================
-
-  function hasItem(id) {
-
-    return itemIds.has(id);
-
-  }
-
-  // =========================================
-  // CONTAGEM
-  // =========================================
-
-  function getCount() {
-
-    return items.length;
-
-  }
-
-  // =========================================
-  // FILTRAR POR CATEGORIA
-  // =========================================
-
-  function getItemsByType(type) {
-
-    return items
-      .filter(item => item.type === type)
-      .map(item => ({ ...item }));
-
-  }
-
-  // =========================================
-  // RESTAURAR INVENTÁRIO
-  // =========================================
-
-  function restore(savedItems = []) {
-
-    items.length = 0;
-
-    itemIds.clear();
-
-    selectedItem = null;
-
-    savedItems.forEach(item => {
-
-      if (!item || !item.id || itemIds.has(item.id)) {
-        return;
-      }
-
-      items.push({
-        id: item.id,
-        name: item.name || "Objeto desconhecido",
-        description: item.description || "",
-        type: item.type || "object",
-        collectedAt: item.collectedAt || null
-      });
-
-      itemIds.add(item.id);
-
-    });
-
-  }
-
-  // =========================================
-  // EXPORTAR PARA SALVAMENTO
-  // =========================================
-
-  function exportData() {
-
-    return getItems();
-
-  }
-
-  // =========================================
-  // LIMPAR INVENTÁRIO
-  // =========================================
-
-  function clear() {
-
-    items.length = 0;
-
-    itemIds.clear();
-
-    selectedItem = null;
-
-  }
-
-  // =========================================
-  // RETORNO
-  // =========================================
-
-  return {
-
-    addItem,
-
-    removeItem,
-
-    getItem,
-
-    getItems,
-
-    selectItem,
-
-    getSelectedItem,
-
-    hasItem,
-
-    getCount,
-
-    getItemsByType,
-
-    restore,
-
-    exportData,
-
-    clear
-
-  };
-
 }
