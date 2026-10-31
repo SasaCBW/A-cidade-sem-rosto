@@ -1,0 +1,93 @@
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#080b10">
+    <title>A Cidade Sem Rosto</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div id="loading-screen">
+        <div class="loading-content">
+            <div class="loading-symbol">?</div>
+            <h1>A CIDADE SEM ROSTO</h1>
+            <p>CARREGANDO A CIDADE...</p>
+            <div class="loading-bar"><span></span></div>
+        </div>
+    </div>
+
+    <div id="main-menu">
+        <div class="menu-background"></div>
+
+        <div class="menu-content">
+            <p class="eyebrow">UMA EXPERIÊNCIA DE MISTÉRIO 3D</p>
+
+            <h1>A CIDADE<br><span>SEM ROSTO</span></h1>
+
+            <p class="subtitle">
+                Algumas cidades escondem segredos.<br>
+                Esta cidade esconde algo muito pior.
+            </p>
+
+            <button id="start-button">INICIAR INVESTIGAÇÃO</button>
+            <button id="about-button">SOBRE O JOGO</button>
+
+            <p class="menu-footer">NÃO CONFIE NO QUE VOCÊ VÊ.</p>
+        </div>
+    </div>
+
+    <div id="game-container"></div>
+
+    <div id="game-ui" class="hidden">
+        <div class="top-info">
+            <div class="location">
+                <span class="status-dot"></span>
+                DISTRITO CENTRAL
+            </div>
+            <div id="clock">03:17 AM</div>
+        </div>
+
+        <div class="mission-panel">
+            <p>OBJETIVO ATUAL</p>
+            <h3>Descubra onde você está.</h3>
+            <span>Explore as ruas e procure pistas.</span>
+        </div>
+
+        <div class="crosshair">+</div>
+
+        <div id="interaction-message"></div>
+
+        <div class="bottom-info">
+            <span>W A S D — MOVIMENTAR</span>
+            <span>MOUSE — OLHAR</span>
+            <span>ESC — PAUSAR</span>
+        </div>
+    </div>
+
+    <div id="pause-menu" class="hidden">
+        <div class="pause-content">
+            <p>INVESTIGAÇÃO INTERROMPIDA</p>
+            <h2>PAUSADO</h2>
+            <button id="resume-button">CONTINUAR</button>
+            <button id="menu-button">VOLTAR AO MENU</button>
+        </div>
+    </div>
+
+    <div id="about-modal" class="hidden">
+        <div class="about-content">
+            <h2>A CIDADE SEM ROSTO</h2>
+            <p>
+                Uma cidade vazia. Fotografias sem rostos.
+                Um mistério que ninguém deveria descobrir.
+            </p>
+            <button id="close-about">FECHAR</button>
+        </div>
+    </div>
+
+    <script type="module" src="js/main.js"></script>
+
+</body>
+</html>
