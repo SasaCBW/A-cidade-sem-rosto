@@ -1,316 +1,606 @@
+import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js";
 
-export function createWorld(THREE, scene) {
-    const world = new THREE.Group();
-    scene.add(world);
+export function createWorld(scene) {
+  const world = new THREE.Group();
+  world.name = "CidadeSemRosto";
 
-    const materials = {
-        ground: new THREE.MeshStandardMaterial({
-            color: 0x24282b,
-            roughness: 0.95
-        }),
-        road: new THREE.MeshStandardMaterial({
-            color: 0x111518,
-            roughness: 0.9
-        }),
-        sidewalk: new THREE.MeshStandardMaterial({
-            color: 0x34383a,
-            roughness: 0.9
-        }),
-        building: new THREE.MeshStandardMaterial({
-            color: 0x242c33,
-            roughness: 0.9
-        }),
-        darkBuilding: new THREE.MeshStandardMaterial({
-            color: 0x151c23,
-            roughness: 0.95
-        }),
-        windowDark: new THREE.MeshStandardMaterial({
-            color: 0x101a22,
-            roughness: 0.4,
-            metalness: 0.2
-        }),
-        windowLight: new THREE.MeshStandardMaterial({
-            color: 0x9b9b75,
-            emissive: 0xb5a66a,
-            emissiveIntensity: 0.8
-        })
-    };
+  // Materiais do cenário
+  const materials = {
+    asphalt: new THREE.MeshStandardMaterial({
+      color: 0x171b20,
+      roughness: 1
+    }),
+    sidewalk: new THREE.MeshStandardMaterial({
+      color: 0x45494c,
+      roughness: 1
+    }),
+    concrete: new THREE.MeshStandardMaterial({
+      color: 0x55575a,
+      roughness: 1
+    }),
+    darkConcrete: new THREE.MeshStandardMaterial({
+      color: 0x292d32,
+      roughness: 1
+    }),
+    window: new THREE.MeshStandardMaterial({
+      color: 0x111b25,
+      roughness: 0.3,
+      metalness: 0.2
+    }),
+    glass: new THREE.MeshStandardMaterial({
+      color: 0x64717a,
+      transparent: true,
+      opacity: 0.3,
+      roughness: 0.2
+    }),
+    roadLine: new THREE.MeshStandardMaterial({
+      color: 0x77736a,
+      roughness: 1
+    }),
+    metal: new THREE.MeshStandardMaterial({
+      color: 0x252a30,
+      metalness: 0.7,
+      roughness: 0.55
+    })
+  };
 
-    // ILUMINAÇÃO GLOBAL
-
-    const ambient = new THREE.HemisphereLight(
-        0x8092a3,
-        0x171b20,
-        1.1
-    );
-    scene.add(ambient);
-
-    const moon = new THREE.DirectionalLight(0x9eafc0, 1.2);
-    moon.position.set(-30, 60, 20);
-    moon.castShadow = true;
-    moon.shadow.mapSize.set(2048, 2048);
-    moon.shadow.camera.left = -80;
-    moon.shadow.camera.right = 80;
-    moon.shadow.camera.top = 80;
-    moon.shadow.camera.bottom = -80;
-    scene.add(moon);
-
-    // TERRENO
-
-    const ground = new THREE.Mesh(
-        new THREE.PlaneGeometry(250, 250),
-        materials.ground
+  // Criador de objetos
+  function addBox(name, x, y, z, width, height, depth, material) {
+    const mesh = new THREE.Mesh(
+      new THREE.BoxGeometry(width, height, depth),
+      material
     );
 
-    ground.rotation.x = -Math.PI / 2;
-    ground.position.y = -0.08;
-    ground.receiveShadow = true;
-    world.add(ground);
+    mesh.name = name;
+    mesh.position.set(x, y, z);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
 
-    // ESTRADA PRINCIPAL
+    world.add(mesh);
 
-    const road = new THREE.Mesh(
-        new THREE.PlaneGeometry(12, 220),
-        materials.road
+    return mesh;
+  }
+
+  // Chão principal
+  addBox(
+    "AsfaltoPrincipal",
+    0,
+    -0.18,
+    -45,
+    190,
+    0.3,
+    230,
+    materials.asphalt
+  );
+
+  // Rua central
+  addBox(
+    "RuaCentral",
+    0,
+    -0.015,
+    -45,
+    13,
+    0.04,
+    230,
+    materials.asphalt
+  );
+
+  // Calçadas
+  addBox(
+    "CalcadaEsquerda",
+    -9,
+    0.02,
+    -45,
+    4,
+    0.15,
+    230,
+    materials.sidewalk
+  );
+
+  addBox(
+    "CalcadaDireita",
+    9,
+    0.02,
+    -45,
+    4,
+    0.15,
+    230,
+    materials.sidewalk
+  );
+
+  // Faixas da rua
+  for (let z = 55; z >= -155; z -= 12) {
+    addBox(
+      "FaixaCentral",
+      0,
+      0.012,
+      z,
+      0.16,
+      0.025,
+      5,
+      materials.roadLine
+    );
+  }
+
+  // Pequenas rachaduras decorativas
+  for (let i = 0; i < 45; i++) {
+    const crack = addBox(
+      "Rachadura",
+      (Math.random() - 0.5) * 11,
+      0.012,
+      45 - Math.random() * 190,
+      0.025 + Math.random() * 0.04,
+      0.012,
+      0.5 + Math.random() * 1.5,
+      materials.darkConcrete
     );
 
-    road.rotation.x = -Math.PI / 2;
-    road.position.y = 0;
-    road.receiveShadow = true;
-    world.add(road);
+    crack.rotation.y = Math.random() * Math.PI;
+    crack.castShadow = false;
+  }
 
-    // CALÇADAS
+  // Construção de prédios
+  function createBuilding({
+    x,
+    z,
+    width,
+    depth,
+    height,
+    color,
+    floors = 2,
+    name = "Predio"
+  }) {
+    const building = new THREE.Group();
+    building.name = name;
+    building.position.set(x, 0, z);
 
-    for (const x of [-8, 8]) {
-        const sidewalk = new THREE.Mesh(
-            new THREE.BoxGeometry(4, 0.2, 220),
-            materials.sidewalk
-        );
-
-        sidewalk.position.set(x, 0.05, 0);
-        sidewalk.receiveShadow = true;
-        world.add(sidewalk);
-    }
-
-    // MARCAS DA ESTRADA
-
-    const lineMaterial = new THREE.MeshBasicMaterial({
-        color: 0x596067,
-        transparent: true,
-        opacity: 0.4
+    const buildingMaterial = new THREE.MeshStandardMaterial({
+      color,
+      roughness: 0.95
     });
 
-    for (let z = -105; z < 110; z += 12) {
-        const line = new THREE.Mesh(
-            new THREE.PlaneGeometry(0.13, 5),
-            lineMaterial
+    const structure = new THREE.Mesh(
+      new THREE.BoxGeometry(width, height, depth),
+      buildingMaterial
+    );
+
+    structure.position.y = height / 2;
+    structure.castShadow = true;
+    structure.receiveShadow = true;
+
+    building.add(structure);
+
+    // Janelas na fachada voltada para a rua
+    const columns = Math.max(2, Math.floor(width / 2.8));
+    const floorHeight = height / floors;
+
+    for (let floor = 0; floor < floors; floor++) {
+      for (let column = 0; column < columns; column++) {
+        const windowWidth = Math.min(1.25, width / (columns + 2));
+        const windowHeight = Math.min(1.3, floorHeight * 0.45);
+
+        const windowMesh = new THREE.Mesh(
+          new THREE.BoxGeometry(
+            windowWidth,
+            windowHeight,
+            0.08
+          ),
+          materials.window
         );
 
-        line.rotation.x = -Math.PI / 2;
-        line.position.set(0, 0.015, z);
-        world.add(line);
-    }
-
-    // CONSTRUÇÃO DOS PRÉDIOS
-
-    let seed = 37;
-
-    function random() {
-        seed = (seed * 16807) % 2147483647;
-        return (seed - 1) / 2147483646;
-    }
-
-    function createBuilding(x, z, width, depth, height) {
-        const building = new THREE.Group();
-
-        const body = new THREE.Mesh(
-            new THREE.BoxGeometry(width, height, depth),
-            random() > 0.5 ? materials.building : materials.darkBuilding
+        windowMesh.position.set(
+          -width / 2 + (column + 1) * width / (columns + 1),
+          floor * floorHeight + floorHeight * 0.55,
+          depth / 2 + 0.045
         );
 
-        body.position.y = height / 2 + 0.1;
-        body.castShadow = true;
-        body.receiveShadow = true;
-        building.add(body);
-
-        const windowWidth = 0.75;
-        const windowHeight = 1.1;
-        const columns = Math.max(1, Math.floor(width / 1.8));
-        const floors = Math.max(1, Math.floor(height / 3));
-
-        for (let floor = 0; floor < floors; floor++) {
-            for (let column = 0; column < columns; column++) {
-                const windowMaterial = random() > 0.82
-                    ? materials.windowLight
-                    : materials.windowDark;
-
-                const windowMesh = new THREE.Mesh(
-                    new THREE.PlaneGeometry(windowWidth, windowHeight),
-                    windowMaterial
-                );
-
-                const wx =
-                    -width / 2 +
-                    ((column + 0.5) * width / columns);
-
-                const wy = 1.8 + floor * 3;
-
-                windowMesh.position.set(
-                    wx,
-                    wy,
-                    depth / 2 + 0.012
-                );
-
-                building.add(windowMesh);
-            }
-        }
-
-        building.position.set(x, 0, z);
-        world.add(building);
+        building.add(windowMesh);
+      }
     }
 
-    // DISTRIBUIÇÃO URBANA
+    // Porta frontal
+    const door = new THREE.Mesh(
+      new THREE.BoxGeometry(1.4, 2.5, 0.1),
+      materials.metal
+    );
 
-    for (let side of [-1, 1]) {
-        for (let z = -90; z <= 90; z += 18) {
-            const width = 9 + random() * 5;
-            const depth = 9 + random() * 4;
-            const height = 12 + random() * 27;
+    door.position.set(
+      0,
+      1.25,
+      depth / 2 + 0.06
+    );
 
-            const x = side * (15 + random() * 4);
+    building.add(door);
 
-            createBuilding(
-                x,
-                z + random() * 5,
-                width,
-                depth,
-                height
-            );
-        }
-    }
+    world.add(building);
 
-    // POSTES DE ILUMINAÇÃO
+    return building;
+  }
 
-    const lampMaterial = new THREE.MeshStandardMaterial({
-        color: 0x252a2c,
-        metalness: 0.7,
-        roughness: 0.4
+  // Prédios do lado esquerdo
+  createBuilding({
+    name: "EdificioResidencial",
+    x: -18,
+    z: -8,
+    width: 13,
+    depth: 13,
+    height: 13,
+    color: 0x45484a,
+    floors: 4
+  });
+
+  createBuilding({
+    name: "LojaAbandonada",
+    x: -19,
+    z: -32,
+    width: 15,
+    depth: 12,
+    height: 7,
+    color: 0x57534b,
+    floors: 2
+  });
+
+  createBuilding({
+    name: "PredioAntigo",
+    x: -19,
+    z: -59,
+    width: 13,
+    depth: 15,
+    height: 17,
+    color: 0x3c4245,
+    floors: 5
+  });
+
+  createBuilding({
+    name: "Farmacia",
+    x: -19,
+    z: -88,
+    width: 14,
+    depth: 13,
+    height: 8,
+    color: 0x4a4c48,
+    floors: 2
+  });
+
+  createBuilding({
+    name: "PredioResidencialDois",
+    x: -19,
+    z: -119,
+    width: 14,
+    depth: 14,
+    height: 15,
+    color: 0x393e43,
+    floors: 4
+  });
+
+  // Prédios do lado direito
+  createBuilding({
+    name: "MercadoAbandonado",
+    x: 19,
+    z: -12,
+    width: 15,
+    depth: 15,
+    height: 8,
+    color: 0x56524b,
+    floors: 2
+  });
+
+  createBuilding({
+    name: "HotelAntigo",
+    x: 19,
+    z: -43,
+    width: 14,
+    depth: 16,
+    height: 19,
+    color: 0x41464b,
+    floors: 5
+  });
+
+  createBuilding({
+    name: "RestauranteFechado",
+    x: 19,
+    z: -75,
+    width: 14,
+    depth: 12,
+    height: 7,
+    color: 0x504a43,
+    floors: 2
+  });
+
+  createBuilding({
+    name: "EdificioComercial",
+    x: 19,
+    z: -105,
+    width: 15,
+    depth: 15,
+    height: 16,
+    color: 0x3d4247,
+    floors: 4
+  });
+
+  createBuilding({
+    name: "CasaAbandonada",
+    x: 19,
+    z: -135,
+    width: 13,
+    depth: 12,
+    height: 7,
+    color: 0x514b45,
+    floors: 2
+  });
+
+  // Postes de iluminação
+  function createStreetLight(x, z) {
+    const pole = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.09, 0.14, 5.5, 10),
+      materials.metal
+    );
+
+    pole.position.set(x, 2.75, z);
+    pole.castShadow = true;
+
+    world.add(pole);
+
+    const arm = new THREE.Mesh(
+      new THREE.BoxGeometry(1.3, 0.09, 0.09),
+      materials.metal
+    );
+
+    arm.position.set(
+      x + (x < 0 ? 0.55 : -0.55),
+      5.35,
+      z
+    );
+
+    world.add(arm);
+
+    const lamp = new THREE.Mesh(
+      new THREE.BoxGeometry(0.55, 0.16, 0.35),
+      new THREE.MeshStandardMaterial({
+        color: 0x777b78,
+        emissive: 0x8b9a9e,
+        emissiveIntensity: 0.35
+      })
+    );
+
+    lamp.position.set(
+      x + (x < 0 ? 1.05 : -1.05),
+      5.25,
+      z
+    );
+
+    world.add(lamp);
+
+    const light = new THREE.PointLight(
+      0x91a2ad,
+      0.45,
+      13,
+      2
+    );
+
+    light.position.copy(lamp.position);
+    light.castShadow = false;
+
+    world.add(light);
+
+    return light;
+  }
+
+  const streetLights = [];
+
+  for (let z = 45; z >= -145; z -= 24) {
+    streetLights.push(createStreetLight(-11, z));
+    streetLights.push(createStreetLight(11, z - 10));
+  }
+
+  // Carros abandonados
+  function createCar(x, z, rotation = 0) {
+    const car = new THREE.Group();
+
+    const carBody = new THREE.Mesh(
+      new THREE.BoxGeometry(2.1, 0.75, 4.2),
+      new THREE.MeshStandardMaterial({
+        color: 0x343b40,
+        roughness: 0.8,
+        metalness: 0.25
+      })
+    );
+
+    carBody.position.y = 0.75;
+    car.add(carBody);
+
+    const cabin = new THREE.Mesh(
+      new THREE.BoxGeometry(1.7, 0.8, 2),
+      materials.darkConcrete
+    );
+
+    cabin.position.set(0, 1.45, -0.15);
+    car.add(cabin);
+
+    const wheelMaterial = new THREE.MeshStandardMaterial({
+      color: 0x101214,
+      roughness: 1
     });
 
-    const lampLightMaterial = new THREE.MeshBasicMaterial({
-        color: 0xffd99a
-    });
+    for (const side of [-1, 1]) {
+      for (const frontBack of [-1, 1]) {
+        const wheel = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.38, 0.38, 0.2, 16),
+          wheelMaterial
+        );
 
-    for (let z = -90; z <= 90; z += 25) {
-        for (let side of [-1, 1]) {
-            const lamp = new THREE.Group();
+        wheel.rotation.z = Math.PI / 2;
 
-            const pole = new THREE.Mesh(
-                new THREE.CylinderGeometry(0.08, 0.12, 6, 8),
-                lampMaterial
-            );
+        wheel.position.set(
+          side * 1.05,
+          0.4,
+          frontBack * 1.35
+        );
 
-            pole.position.y = 3;
-            lamp.add(pole);
-
-            const arm = new THREE.Mesh(
-                new THREE.BoxGeometry(1.5, 0.08, 0.08),
-                lampMaterial
-            );
-
-            arm.position.set(-side * 0.6, 5.8, 0);
-            lamp.add(arm);
-
-            const bulb = new THREE.Mesh(
-                new THREE.SphereGeometry(0.2, 12, 12),
-                lampLightMaterial
-            );
-
-            bulb.position.set(-side * 1.3, 5.7, 0);
-            lamp.add(bulb);
-
-            const light = new THREE.PointLight(
-                0xffd6a0,
-                2.5,
-                20
-            );
-
-            light.position.copy(bulb.position);
-            lamp.add(light);
-
-            lamp.position.set(side * 7.5, 0, z);
-            world.add(lamp);
-        }
+        car.add(wheel);
+      }
     }
 
-    // OBJETOS URBANOS: CAIXAS E BANCOS
+    car.position.set(x, 0, z);
+    car.rotation.y = rotation;
 
-    const propMaterial = new THREE.MeshStandardMaterial({
-        color: 0x303a40,
+    car.traverse(object => {
+      if (object.isMesh) {
+        object.castShadow = true;
+        object.receiveShadow = true;
+      }
+    });
+
+    world.add(car);
+  }
+
+  createCar(-5, -20, 0.2);
+  createCar(5, -54, -0.15);
+  createCar(-4, -97, 0.1);
+  createCar(5, -127, -0.25);
+
+  // Árvores secas
+  function createDeadTree(x, z, scale = 1) {
+    const tree = new THREE.Group();
+
+    const trunk = new THREE.Mesh(
+      new THREE.CylinderGeometry(
+        0.16 * scale,
+        0.3 * scale,
+        3.5 * scale,
+        7
+      ),
+      new THREE.MeshStandardMaterial({
+        color: 0x302b26,
+        roughness: 1
+      })
+    );
+
+    trunk.position.y = 1.75 * scale;
+    tree.add(trunk);
+
+    for (let i = 0; i < 5; i++) {
+      const branch = new THREE.Mesh(
+        new THREE.CylinderGeometry(
+          0.035 * scale,
+          0.11 * scale,
+          1.7 * scale,
+          6
+        ),
+        trunk.material
+      );
+
+      branch.position.set(
+        (Math.random() - 0.5) * 1.4 * scale,
+        (2.4 + Math.random() * 1.2) * scale,
+        (Math.random() - 0.5) * 0.7 * scale
+      );
+
+      branch.rotation.z =
+        (Math.random() - 0.5) * 1.5;
+
+      branch.rotation.x =
+        (Math.random() - 0.5) * 0.8;
+
+      tree.add(branch);
+    }
+
+    tree.position.set(x, 0, z);
+    tree.scale.setScalar(0.8 + Math.random() * 0.5);
+
+    world.add(tree);
+  }
+
+  for (let z = 45; z >= -145; z -= 17) {
+    createDeadTree(-13, z, 1);
+    createDeadTree(13, z - 8, 1);
+  }
+
+  // Placas de rua
+  function createSign(text, x, z) {
+    const sign = new THREE.Group();
+
+    const post = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.07, 0.09, 3, 8),
+      materials.metal
+    );
+
+    post.position.y = 1.5;
+    sign.add(post);
+
+    const board = new THREE.Mesh(
+      new THREE.BoxGeometry(2.8, 0.75, 0.12),
+      new THREE.MeshStandardMaterial({
+        color: 0x26333a,
         roughness: 0.9
-    });
+      })
+    );
 
-    for (let z = -75; z < 85; z += 30) {
-        const bench = new THREE.Group();
+    board.position.y = 2.8;
+    sign.add(board);
 
-        const seat = new THREE.Mesh(
-            new THREE.BoxGeometry(2, 0.18, 0.65),
-            propMaterial
-        );
+    const canvas = document.createElement("canvas");
+    canvas.width = 512;
+    canvas.height = 128;
 
-        seat.position.y = 0.65;
-        bench.add(seat);
+    const context = canvas.getContext("2d");
 
-        for (let x of [-0.75, 0.75]) {
-            const leg = new THREE.Mesh(
-                new THREE.BoxGeometry(0.12, 0.65, 0.12),
-                lampMaterial
-            );
+    context.fillStyle = "#26333a";
+    context.fillRect(0, 0, canvas.width, canvas.height);
 
-            leg.position.set(x, 0.32, 0);
-            bench.add(leg);
+    context.fillStyle = "#d1d5d4";
+    context.font = "bold 42px Arial";
+    context.textAlign = "center";
+    context.textBaseline = "middle";
+    context.fillText(text, 256, 64);
+
+    const texture = new THREE.CanvasTexture(canvas);
+
+    const label = new THREE.Mesh(
+      new THREE.PlaneGeometry(2.7, 0.68),
+      new THREE.MeshBasicMaterial({
+        map: texture,
+        transparent: true
+      })
+    );
+
+    label.position.set(0, 2.8, 0.075);
+    sign.add(label);
+
+    sign.position.set(x, 0, z);
+    world.add(sign);
+  }
+
+  createSign("RUA CENTRAL", -11, 18);
+  createSign("HOSPITAL", 11, -25);
+  createSign("ESCOLA", -11, -75);
+
+  // Adiciona o mundo à cena
+  scene.add(world);
+
+  // Retorno para controle futuro
+  return {
+    group: world,
+    streetLights,
+
+    update(delta) {
+      // Espaço reservado para efeitos ambientais.
+    },
+
+    destroy() {
+      scene.remove(world);
+
+      world.traverse(object => {
+        if (object.isMesh) {
+          object.geometry.dispose();
+
+          if (Array.isArray(object.material)) {
+            object.material.forEach(material => material.dispose());
+          } else if (object.material) {
+            object.material.dispose();
+          }
         }
-
-        bench.position.set(z % 2 ? 10 : -10, 0, z);
-        world.add(bench);
+      });
     }
-
-    // ÁREA DE NÉVOA E ATMOSFERA
-
-    const fogParticles = new THREE.Group();
-
-    const particleMaterial = new THREE.MeshBasicMaterial({
-        color: 0x9aaab5,
-        transparent: true,
-        opacity: 0.15
-    });
-
-    for (let i = 0; i < 80; i++) {
-        const particle = new THREE.Mesh(
-            new THREE.SphereGeometry(0.035, 5, 5),
-            particleMaterial
-        );
-
-        particle.position.set(
-            (random() - 0.5) * 35,
-            0.5 + random() * 5,
-            (random() - 0.5) * 150
-        );
-
-        fogParticles.add(particle);
-    }
-
-    world.add(fogParticles);
-
-    return {
-        group: world,
-
-        update(delta) {
-            fogParticles.children.forEach((particle, index) => {
-                particle.position.y +=
-                    Math.sin(performance.now() * 0.0003 + index) *
-                    delta * 0.08;
-            });
-        }
-    };
+  };
 }
