@@ -1,0 +1,384 @@
+
+@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700;800&family=Montserrat:wght@300;400;500;600;700&display=swap');
+
+:root {
+    --background: #080b10;
+    --panel: rgba(9, 14, 21, 0.92);
+    --white: #e8edf2;
+    --muted: #89939e;
+    --accent: #a6bdc9;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    width: 100%;
+    height: 100vh;
+    overflow: hidden;
+    background: var(--background);
+    color: var(--white);
+    font-family: 'Montserrat', sans-serif;
+}
+
+button {
+    font-family: inherit;
+    cursor: pointer;
+}
+
+#game-container {
+    position: fixed;
+    inset: 0;
+    z-index: 1;
+}
+
+#game-container canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+.hidden {
+    display: none !important;
+}
+
+/* CARREGAMENTO */
+
+#loading-screen {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    background: #080b10;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.loading-content {
+    text-align: center;
+}
+
+.loading-symbol {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 80px;
+    color: #a8bdc8;
+    margin-bottom: 15px;
+}
+
+.loading-content h1 {
+    font-family: 'Barlow Condensed', sans-serif;
+    letter-spacing: 7px;
+    font-size: 32px;
+}
+
+.loading-content p {
+    color: #78838e;
+    font-size: 10px;
+    letter-spacing: 4px;
+    margin-top: 15px;
+}
+
+.loading-bar {
+    width: 220px;
+    height: 2px;
+    background: #27313a;
+    margin: 25px auto;
+    overflow: hidden;
+}
+
+.loading-bar span {
+    display: block;
+    width: 100%;
+    height: 100%;
+    background: #b5c8d2;
+    animation: loading 2s ease-in-out infinite;
+    transform-origin: left;
+}
+
+@keyframes loading {
+    0% { transform: scaleX(0); }
+    60% { transform: scaleX(1); }
+    100% { transform: scaleX(1); }
+}
+
+/* MENU */
+
+#main-menu {
+    position: fixed;
+    inset: 0;
+    z-index: 10;
+    background: #080b10;
+    overflow: hidden;
+}
+
+.menu-background {
+    position: absolute;
+    inset: 0;
+    background:
+        linear-gradient(90deg, rgba(4,7,12,.98) 0%, rgba(4,7,12,.84) 45%, rgba(4,7,12,.30) 100%),
+        linear-gradient(0deg, #080b10 0%, transparent 45%),
+        url('https://images.unsplash.com/photo-1519608487953-e999c86e7455?auto=format&fit=crop&w=2000&q=85')
+        center / cover no-repeat;
+    filter: saturate(.35);
+    transform: scale(1.04);
+}
+
+.menu-content {
+    position: relative;
+    z-index: 2;
+    min-height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 8%;
+}
+
+.eyebrow {
+    color: #9baeba;
+    letter-spacing: 5px;
+    font-size: 10px;
+    margin-bottom: 25px;
+}
+
+.menu-content h1 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: clamp(65px, 10vw, 135px);
+    font-weight: 800;
+    line-height: .83;
+    letter-spacing: 2px;
+    text-shadow: 0 5px 35px #000;
+}
+
+.menu-content h1 span {
+    color: #a4b8c4;
+}
+
+.subtitle {
+    margin-top: 35px;
+    color: #a3abb2;
+    line-height: 1.9;
+    font-size: 13px;
+    font-weight: 300;
+}
+
+.menu-content button,
+.pause-content button,
+.about-content button {
+    width: 260px;
+    padding: 17px;
+    margin-top: 30px;
+    border: 1px solid #a6bdc9;
+    background: #a6bdc9;
+    color: #080b10;
+    font-weight: 700;
+    letter-spacing: 2px;
+    font-size: 10px;
+    transition: .3s;
+}
+
+.menu-content button:hover,
+.pause-content button:hover,
+.about-content button:hover {
+    background: transparent;
+    color: white;
+}
+
+.menu-content #about-button {
+    margin-top: 12px;
+    background: transparent;
+    color: #d2d9de;
+    border-color: #56616c;
+}
+
+.menu-content #about-button:hover {
+    background: #a6bdc9;
+    color: #080b10;
+}
+
+.menu-footer {
+    position: absolute;
+    bottom: 35px;
+    color: #65717b;
+    font-size: 9px;
+    letter-spacing: 4px;
+}
+
+/* INTERFACE DO JOGO */
+
+#game-ui {
+    position: fixed;
+    inset: 0;
+    z-index: 5;
+    pointer-events: none;
+}
+
+.top-info {
+    position: absolute;
+    top: 30px;
+    left: 35px;
+    right: 35px;
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+    letter-spacing: 3px;
+    color: #d5dce1;
+}
+
+.location {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.status-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #a4bac5;
+    box-shadow: 0 0 12px #a4bac5;
+}
+
+.mission-panel {
+    position: absolute;
+    top: 105px;
+    left: 35px;
+    border-left: 2px solid #a6bdc9;
+    padding: 12px 20px;
+    background: rgba(5, 9, 14, .65);
+}
+
+.mission-panel p {
+    color: #a6bdc9;
+    font-size: 9px;
+    letter-spacing: 3px;
+    margin-bottom: 10px;
+}
+
+.mission-panel h3 {
+    font-size: 14px;
+    font-weight: 500;
+    margin-bottom: 8px;
+}
+
+.mission-panel span {
+    color: #9ba4ac;
+    font-size: 10px;
+}
+
+.crosshair {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    color: rgba(255,255,255,.8);
+    font-size: 22px;
+    font-weight: 300;
+}
+
+.bottom-info {
+    position: absolute;
+    bottom: 28px;
+    left: 0;
+    right: 0;
+    display: flex;
+    justify-content: center;
+    gap: 35px;
+    color: #c3cbd1;
+    font-size: 9px;
+    letter-spacing: 2px;
+    text-shadow: 0 2px 5px black;
+}
+
+#interaction-message {
+    position: absolute;
+    top: 58%;
+    width: 100%;
+    text-align: center;
+    color: white;
+    font-size: 12px;
+    letter-spacing: 2px;
+    text-shadow: 0 2px 5px black;
+}
+
+/* PAUSA */
+
+#pause-menu,
+#about-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(3, 6, 10, .94);
+    backdrop-filter: blur(10px);
+}
+
+.pause-content,
+.about-content {
+    width: min(90%, 450px);
+    text-align: center;
+    padding: 45px 25px;
+    border: 1px solid #27333d;
+    background: #0a1018;
+}
+
+.pause-content p {
+    font-size: 9px;
+    color: #8fa6b4;
+    letter-spacing: 4px;
+}
+
+.pause-content h2,
+.about-content h2 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 60px;
+    letter-spacing: 5px;
+    margin: 15px 0;
+}
+
+.pause-content button,
+.about-content button {
+    display: block;
+    margin: 15px auto;
+}
+
+.about-content p {
+    color: #a5afb8;
+    font-size: 12px;
+    line-height: 2;
+}
+
+/* RESPONSIVIDADE */
+
+@media (max-width: 600px) {
+    .menu-content {
+        padding: 8%;
+    }
+
+    .menu-content h1 {
+        font-size: 65px;
+    }
+
+    .top-info {
+        left: 15px;
+        right: 15px;
+        font-size: 8px;
+    }
+
+    .mission-panel {
+        left: 15px;
+        top: 85px;
+    }
+
+    .bottom-info {
+        flex-wrap: wrap;
+        gap: 12px;
+        font-size: 8px;
+        padding: 0 10px;
+    }
+}
